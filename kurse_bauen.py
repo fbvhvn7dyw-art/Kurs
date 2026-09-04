@@ -29,7 +29,8 @@ DATEI_CACHE = ORDNER / "isin_kuerzel.json"
 DATEI_ZIEL = ORDNER / "docs" / "index.html"
 
 ANZAHL_TOP = 20
-PAUSE = 0.5          # Sekunden zwischen zwei Abfragen
+PAUSE = 1.0          # Sekunden zwischen zwei Abfragen - nicht kleiner machen,
+                     # sonst bremst Yahoo bei so vielen Werten
 ISIN_MUSTER = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
 
 BROWSERKOPF = {
