@@ -1,0 +1,46 @@
+name: Kurse aktualisieren
+
+on:
+  # Werktags um 05:15 Uhr Weltzeit = 07:15 Uhr deutscher Sommerzeit.
+  # Im Winter eine Stunde frueher. Zum Aendern nur die Ziffern anpassen:
+  # "Minute Stunde * * Wochentage"
+  schedule:
+    - cron: "15 5 * * 1-5"
+  # Erlaubt das Starten von Hand ueber den Reiter "Actions".
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kurse
+  cancel-in-progress: false
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Projekt holen
+        uses: actions/checkout@v4
+
+      - name: Python bereitstellen
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Kurse abrufen und Seite bauen
+        run: python kurse_bauen.py
+
+      - name: Ergebnis speichern
+        run: |
+          git config user.name "Kurs-Roboter"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/index.html isin_kuerzel.json
+          if git diff --staged --quiet; then
+            echo "Nichts Neues."
+          else
+            git commit -m "Kurse vom $(TZ=Europe/Berlin date +'%d.%m.%Y %H:%M')"
+            git push
+          fi

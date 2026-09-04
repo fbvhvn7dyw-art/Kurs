@@ -1,0 +1,175 @@
+# =====================================================================
+# Diese Datei bestimmt, was in der Tabelle steht.
+#
+# Eine Zeile = ein Wertpapier. Erlaubt ist:
+#     ISIN                     -> Kürzel wird bei Yahoo gesucht
+#     Kürzel                   -> z. B. AAPL oder SIE.DE
+#     ISIN ; Kürzel ; Name     -> wenn die Suche etwas Falsches findet
+#
+# Zeilen mit # am Anfang sind Notizen und werden übersprungen.
+# =====================================================================
+
+
+[MEINE WERTPAPIERE]
+# Diese stehen immer ganz oben in der Tabelle, in dieser Reihenfolge.
+
+LU0203975197
+LU0757431068
+FR0010315770
+LU0274211480
+IE00B1D7YP71
+IE00B8GKDB10
+LU0411078552
+LU1900066033
+FR0010930644
+DE000A0F5UJ7
+US5324571083
+US0404132054
+US67066G1040
+
+
+[VERGLEICHSLISTE]
+# Aus dieser Liste werden die 20 mit der besten Ein-Jahres-Entwicklung
+# gewählt und unter deinen Werten angezeigt.
+# Hier darfst du alles hineinschreiben, was dich interessiert.
+# Was Yahoo nicht kennt, wird stillschweigend übersprungen und unten
+# auf der Seite vermerkt.
+
+# --- Deutschland ---
+SAP.DE
+SIE.DE
+ALV.DE
+DTE.DE
+AIR.DE
+MBG.DE
+BMW.DE
+BAS.DE
+MUV2.DE
+RHM.DE
+IFX.DE
+DB1.DE
+ADS.DE
+HEN3.DE
+MRK.DE
+VOW3.DE
+BAYN.DE
+DHL.DE
+ENR.DE
+HNR1.DE
+SY1.DE
+ZAL.DE
+1COV.DE
+PAH3.DE
+FRE.DE
+RWE.DE
+EOAN.DE
+BEI.DE
+CBK.DE
+DBK.DE
+HEI.DE
+QIA.DE
+SRT3.DE
+VNA.DE
+BNR.DE
+CON.DE
+P911.DE
+
+# --- Europa ---
+ASML.AS
+MC.PA
+OR.PA
+AIR.PA
+SU.PA
+TTE.PA
+SAN.PA
+BNP.PA
+NESN.SW
+ROG.SW
+NOVN.SW
+UBSG.SW
+ABBN.SW
+NOVO-B.CO
+SHEL.L
+AZN.L
+HSBA.L
+ULVR.L
+RIO.L
+
+# --- USA ---
+AAPL
+MSFT
+NVDA
+GOOGL
+AMZN
+META
+AVGO
+TSLA
+LLY
+JPM
+V
+MA
+UNH
+XOM
+COST
+HD
+PG
+JNJ
+ABBV
+WMT
+NFLX
+CRM
+AMD
+ADBE
+PEP
+KO
+ORCL
+CSCO
+ACN
+MCD
+TMO
+ABT
+LIN
+INTU
+QCOM
+TXN
+DHR
+CAT
+GE
+AMAT
+PLTR
+ANET
+NOW
+ISRG
+BKNG
+VRTX
+REGN
+PANW
+MU
+LRCX
+KLAC
+SNPS
+CDNS
+MRVL
+CRWD
+DELL
+ARM
+COIN
+UBER
+SHOP
+SPOT
+TSM
+NVO
+
+# --- Fonds, ETFs, Rohstoffe ---
+EUNL.DE
+SXR8.DE
+VWCE.DE
+EXS1.DE
+4GLD.DE
+GC=F
+SI=F
+BTC-EUR
+^GDAXI
+^STOXX50E
+^GSPC
+^NDX
