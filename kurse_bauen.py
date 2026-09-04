@@ -108,11 +108,21 @@ def kurs_abrufen(kuerzel):
     if not isinstance(kurs, (int, float)):
         kurs = verlauf[-1][1]
 
+    # Tag, zu dem der aktuelle Kurs gehoert. Nur "previousClose" verwenden,
+    # niemals "chartPreviousClose" - das ist der Kurs vom Anfang des ganzen
+    # Zeitraums, also von vor zehn Jahren.
+    zeitstempel = meta.get("regularMarketTime")
+    if isinstance(zeitstempel, (int, float)):
+        handelstag = datetime.fromtimestamp(zeitstempel, tz=timezone.utc).date()
+    else:
+        handelstag = verlauf[-1][0]
+
     return {
         "kuerzel": meta.get("symbol") or kuerzel,
         "name": meta.get("longName") or meta.get("shortName") or kuerzel,
         "kurs": float(kurs),
-        "vortag": meta.get("previousClose") or meta.get("chartPreviousClose"),
+        "vortag": meta.get("previousClose"),
+        "handelstag": handelstag,
         "waehrung": meta.get("currency") or "",
         "verlauf": verlauf,
     }
@@ -132,6 +142,17 @@ def kurs_vor(verlauf, tage, stichtag):
     return gefunden
 
 
+def schluss_davor(verlauf, handelstag):
+    """Letzter Schlusskurs vor dem angegebenen Handelstag."""
+    gefunden = None
+    for tag, wert in verlauf:
+        if tag < handelstag:
+            gefunden = wert
+        else:
+            break
+    return gefunden
+
+
 def veraenderungen(satz):
     """Prozentuale Veraenderung ueber die fuenf Zeitraeume."""
     verlauf = satz["verlauf"]
@@ -139,9 +160,14 @@ def veraenderungen(satz):
     stichtag = verlauf[-1][0]
     werte = {}
 
-    vortag = satz.get("vortag")
-    if not isinstance(vortag, (int, float)) or not vortag:
-        vortag = verlauf[-2][1] if len(verlauf) > 1 else None
+    # Grundlage ist immer der letzte Schlusskurs VOR dem aktuellen Handelstag.
+    # Yahoos Angabe "previousClose" wird nur genommen, wenn sie dazu passt -
+    # so kann kein uralter Wert mehr hineinrutschen.
+    vortag = schluss_davor(verlauf, satz.get("handelstag") or stichtag)
+    gemeldet = satz.get("vortag")
+    if isinstance(gemeldet, (int, float)) and gemeldet > 0:
+        if vortag is None or abs(gemeldet - vortag) / vortag < 0.25:
+            vortag = gemeldet
     werte["tag"] = (kurs - vortag) / vortag * 100 if vortag else None
 
     for name, tage in (("woche", 7), ("monat", 30), ("jahr", 365), ("fuenf", 1826)):
