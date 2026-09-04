@@ -1,0 +1,54 @@
+{
+ "LU0203975197": {
+  "kuerzel": "XRQC.F",
+  "name": "Robeco BP Gl Premium Equities A"
+ },
+ "LU0757431068": {
+  "kuerzel": "XRZG.F",
+  "name": "CT (Lux) Global Focus         N"
+ },
+ "FR0010315770": {
+  "kuerzel": "WLD.PA",
+  "name": "Amundi MSCI World Swap II UCITS"
+ },
+ "LU0274211480": {
+  "kuerzel": "DBXD.DE",
+  "name": "Xtrackers DAX                 I"
+ },
+ "IE00B1D7YP71": {
+  "kuerzel": "0P00006D2B",
+  "name": "StocksPLUS™ Fund E USD Accumu"
+ },
+ "IE00B8GKDB10": {
+  "kuerzel": "VHYD.L",
+  "name": "VANGUARD FUNDS PLC VANGUARD FTS"
+ },
+ "LU0411078552": {
+  "kuerzel": "XS2D.L",
+  "name": "XTRACKERS X S&P 500 2X LEVERAGE"
+ },
+ "LU1900066033": {
+  "kuerzel": "CHIP.SW",
+  "name": "Amundi MSCI Semiconductors"
+ },
+ "FR0010930644": {
+  "kuerzel": "ANRJ.PA",
+  "name": "Amundi Global Hydrogen UCITS ET"
+ },
+ "DE000A0F5UJ7": {
+  "kuerzel": "EXV1.DE",
+  "name": "iSh.ST.Euro.600 Banks U.ETF DEI"
+ },
+ "US5324571083": {
+  "kuerzel": "LLY",
+  "name": "Eli Lilly and Company"
+ },
+ "US0404132054": {
+  "kuerzel": "ANET",
+  "name": "Arista Networks, Inc."
+ },
+ "US67066G1040": {
+  "kuerzel": "NVDA",
+  "name": "NVIDIA Corporation"
+ }
+}

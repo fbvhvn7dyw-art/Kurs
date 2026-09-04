@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kursübersicht</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E7EAEF; --card:#F6F8FA; --ink:#16202B; --ink-soft:#5C6B7A;
+  --rule:#CBD3DC; --rule-soft:#DDE3E9;
+  --up:#1F6B57; --down:#C0392B; --marine:#2B3A55;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#141A21; --card:#1B232C; --ink:#E6EBF0; --ink-soft:#93A2B1;
+    --rule:#2C3844; --rule-soft:#232D37;
+    --up:#5FBE9C; --down:#F0705A; --marine:#A9BEDC;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;padding:0 0 48px;background:var(--paper);color:var(--ink);
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  -webkit-text-size-adjust:100%;}
+header,section.fuss{padding:0 16px;max-width:1100px;margin:0 auto}
+header{padding-top:26px}
+h1{font-family:Newsreader,Georgia,serif;font-weight:300;font-size:2rem;margin:0;letter-spacing:-.01em}
+.stand{color:var(--ink-soft);font-size:.85rem;margin:6px 0 0}
+h2{font-family:Newsreader,Georgia,serif;font-weight:400;font-size:1.1rem;
+   margin:26px 16px 8px;max-width:1100px}
+@media(min-width:1132px){h2{margin-left:auto;margin-right:auto}}
+.rolle{overflow-x:auto;-webkit-overflow-scrolling:touch;border-top:1px solid var(--rule);
+  border-bottom:1px solid var(--rule);background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:.84rem}
+th,td{padding:9px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--rule-soft)}
+th{position:sticky;top:0;background:var(--card);font-weight:500;font-size:.74rem;
+   color:var(--ink-soft);border-bottom:1px solid var(--rule);z-index:2}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--card);z-index:1}
+th:first-child{z-index:3}
+td.isin{font-size:.76rem;color:var(--ink-soft);letter-spacing:.01em}
+td.bez{text-align:left;white-space:normal;min-width:190px}
+td.bez span{font-weight:500}
+td.bez em{display:block;font-style:normal;font-size:.72rem;color:var(--ink-soft)}
+td.kurs{font-family:Newsreader,Georgia,serif;font-size:1.02rem;font-variant-numeric:tabular-nums}
+td.kurs em{font-style:normal;font-size:.68rem;color:var(--ink-soft);margin-left:4px;
+  font-family:Inter,sans-serif}
+td.p{font-variant-numeric:tabular-nums;font-weight:500}
+td.p.plus{color:var(--up)}
+td.p.minus{color:var(--down)}
+tr.leer td{color:var(--ink-soft)}
+td.hinweiszelle{text-align:left;font-size:.78rem}
+tbody tr:nth-child(even) td{background:var(--paper)}
+tbody tr:nth-child(even) td:first-child{background:var(--paper)}
+section.fuss{margin-top:30px;font-size:.78rem;color:var(--ink-soft);line-height:1.6}
+section.fuss p{margin:0 0 8px}
+details{margin-top:10px}
+summary{cursor:pointer}
+details ul{margin:8px 0 0;padding-left:18px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Kursübersicht</h1>
+  <p class="stand">Stand 04.09.2026, 15:26 Uhr · Kurse von Yahoo Finance, ohne Gewähr</p>
+</header>
+
+<h2>Meine Wertpapiere</h2>
+<div class="rolle"><table>
+<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>1 Tag</th><th>1 Woche</th>
+<th>1 Monat</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
+<tbody>
+<tr><td class='isin'>LU0203975197</td><td class='bez'><span>Robeco BP Gl Premium Equities A</span><em>XRQC.F</em></td><td class='kurs'>325,25<em>EUR</em></td><td class="p plus">+0,07 %</td><td class="p">–</td><td class="p">–</td><td class="p">–</td><td class="p">–</td></tr>
+<tr><td class='isin'>LU0757431068</td><td class='bez'><span>CT (Lux) Global Focus         N</span><em>XRZG.F</em></td><td class='kurs'>146,56<em>EUR</em></td><td class="p minus">−0,58 %</td><td class="p">–</td><td class="p">–</td><td class="p">–</td><td class="p">–</td></tr>
+<tr><td class='isin'>FR0010315770</td><td class='bez'><span>Amundi MSCI World Swap II UCITS</span><em>WLD.PA</em></td><td class='kurs'>430,30<em>EUR</em></td><td class="p plus">+178,73 %</td><td class="p minus">−0,34 %</td><td class="p minus">−0,41 %</td><td class="p plus">+19,78 %</td><td class="p plus">+62,97 %</td></tr>
+<tr><td class='isin'>LU0274211480</td><td class='bez'><span>Xtrackers DAX                 I</span><em>DBXD.DE</em></td><td class='kurs'>243,70<em>EUR</em></td><td class="p plus">+133,30 %</td><td class="p minus">−1,67 %</td><td class="p minus">−0,08 %</td><td class="p plus">+9,38 %</td><td class="p plus">+61,43 %</td></tr>
+<tr><td class='isin'>IE00B1D7YP71</td><td class='bez'><span>StocksPLUS™ Fund E USD Accumu</span><em>0P00006D2B</em></td><td class='kurs'>81,96<em>USD</em></td><td class="p plus">+206,16 %</td><td class="p minus">−0,18 %</td><td class="p plus">+0,76 %</td><td class="p plus">+19,86 %</td><td class="p plus">+63,79 %</td></tr>
+<tr><td class='isin'>IE00B8GKDB10</td><td class='bez'><span>VANGUARD FUNDS PLC VANGUARD FTS</span><em>VHYD.L</em></td><td class='kurs'>95,14<em>USD</em></td><td class="p plus">+88,63 %</td><td class="p plus">+0,41 %</td><td class="p plus">+1,59 %</td><td class="p plus">+23,44 %</td><td class="p plus">+48,95 %</td></tr>
+<tr><td class='isin'>LU0411078552</td><td class='bez'><span>XTRACKERS X S&amp;P 500 2X LEVERAGE</span><em>XS2D.L</em></td><td class='kurs'>366,73<em>USD</em></td><td class="p plus">+750,29 %</td><td class="p minus">−0,90 %</td><td class="p minus">−0,47 %</td><td class="p plus">+36,72 %</td><td class="p plus">+126,15 %</td></tr>
+<tr><td class='isin'>LU1900066033</td><td class='bez'><span>Amundi MSCI Semiconductors</span><em>CHIP.SW</em></td><td class='kurs'>127,46<em>USD</em></td><td class="p plus">+1.106,32 %</td><td class="p plus">+0,36 %</td><td class="p minus">−1,26 %</td><td class="p plus">+93,12 %</td><td class="p plus">+307,81 %</td></tr>
+<tr><td class='isin'>FR0010930644</td><td class='bez'><span>Amundi Global Hydrogen UCITS ET</span><em>ANRJ.PA</em></td><td class='kurs'>704,00<em>EUR</em></td><td class="p plus">+258,05 %</td><td class="p minus">−0,58 %</td><td class="p minus">−1,83 %</td><td class="p plus">+39,24 %</td><td class="p plus">+229,82 %</td></tr>
+<tr><td class='isin'>DE000A0F5UJ7</td><td class='bez'><span>iSh.ST.Euro.600 Banks U.ETF DEI</span><em>EXV1.DE</em></td><td class='kurs'>42,91<em>EUR</em></td><td class="p plus">+184,70 %</td><td class="p plus">+1,24 %</td><td class="p plus">+0,72 %</td><td class="p plus">+44,17 %</td><td class="p plus">+218,66 %</td></tr>
+<tr><td class='isin'>US5324571083</td><td class='bez'><span>Eli Lilly and Company</span><em>LLY</em></td><td class='kurs'>1.159,60<em>USD</em></td><td class="p plus">+1.408,91 %</td><td class="p minus">−1,40 %</td><td class="p plus">+3,94 %</td><td class="p plus">+57,16 %</td><td class="p plus">+346,81 %</td></tr>
+<tr><td class='isin'>US0404132054</td><td class='bez'><span>Arista Networks, Inc.</span><em>ANET</em></td><td class='kurs'>191,44<em>USD</em></td><td class="p plus">+3.684,15 %</td><td class="p minus">−4,80 %</td><td class="p plus">+0,49 %</td><td class="p plus">+39,35 %</td><td class="p plus">+743,53 %</td></tr>
+<tr><td class='isin'>US67066G1040</td><td class='bez'><span>NVIDIA Corporation</span><em>NVDA</em></td><td class='kurs'>228,45<em>USD</em></td><td class="p plus">+14.516,12 %</td><td class="p plus">+0,21 %</td><td class="p plus">+7,79 %</td><td class="p plus">+33,89 %</td><td class="p plus">+900,09 %</td></tr>
+</tbody></table></div>
+
+<h2>Top 20 nach Ein-Jahres-Entwicklung</h2>
+<div class="rolle"><table>
+<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>1 Tag</th><th>1 Woche</th>
+<th>1 Monat</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
+<tbody>
+<tr><td class='isin'>–</td><td class='bez'><span>Micron Technology, Inc.</span><em>MU</em></td><td class='kurs'>958,16<em>USD</em></td><td class="p plus">+5.637,49 %</td><td class="p plus">+2,43 %</td><td class="p plus">+7,34 %</td><td class="p plus">+707,08 %</td><td class="p plus">+1.198,14 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>Dell Technologies Inc.</span><em>DELL</em></td><td class='kurs'>516,39<em>USD</em></td><td class="p plus">+4.181,13 %</td><td class="p plus">+9,34 %</td><td class="p plus">+10,51 %</td><td class="p plus">+316,38 %</td><td class="p plus">+948,83 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>Marvell Technology, Inc.</span><em>MRVL</em></td><td class='kurs'>208,83<em>USD</em></td><td class="p plus">+1.505,15 %</td><td class="p minus">−13,51 %</td><td class="p minus">−4,46 %</td><td class="p plus">+235,15 %</td><td class="p plus">+239,51 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>Lam Research Corporation</span><em>LRCX</em></td><td class='kurs'>292,66<em>USD</em></td><td class="p plus">+3.001,53 %</td><td class="p minus">−8,14 %</td><td class="p minus">−7,89 %</td><td class="p plus">+199,43 %</td><td class="p plus">+379,21 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>Advanced Micro Devices, Inc.</span><em>AMD</em></td><td class='kurs'>456,16<em>USD</em></td><td class="p plus">+5.974,03 %</td><td class="p minus">−4,30 %</td><td class="p minus">−12,04 %</td><td class="p plus">+181,35 %</td><td class="p plus">+314,99 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>Applied Materials, Inc.</span><em>AMAT</em></td><td class='kurs'>435,91<em>USD</em></td><td class="p plus">+1.352,07 %</td><td class="p minus">−9,63 %</td><td class="p minus">−20,25 %</td><td class="p plus">+178,98 %</td><td class="p plus">+220,92 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>ASML Holding N.V.</span><em>ASML.AS</em></td><td class='kurs'>1.443,80<em>EUR</em></td><td class="p plus">+1.392,30 %</td><td class="p minus">−3,39 %</td><td class="p minus">−1,50 %</td><td class="p plus">+122,95 %</td><td class="p plus">+100,03 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>CrowdStrike Holdings, Inc.</span><em>CRWD</em></td><td class='kurs'>214,97<em>USD</em></td><td class="p plus">+1.254,14 %</td><td class="p minus">−5,70 %</td><td class="p plus">+1,78 %</td><td class="p plus">+108,10 %</td><td class="p plus">+209,05 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>KLA Corporation</span><em>KLAC</em></td><td class='kurs'>172,94<em>USD</em></td><td class="p plus">+2.363,53 %</td><td class="p minus">−5,89 %</td><td class="p minus">−11,52 %</td><td class="p plus">+104,93 %</td><td class="p plus">+406,04 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>Caterpillar Inc.</span><em>CAT</em></td><td class='kurs'>800,14<em>USD</em></td><td class="p plus">+879,48 %</td><td class="p minus">−2,06 %</td><td class="p minus">−8,72 %</td><td class="p plus">+92,75 %</td><td class="p plus">+280,35 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>Arm Holdings plc</span><em>ARM</em></td><td class='kurs'>242,59<em>USD</em></td><td class="p plus">+332,42 %</td><td class="p minus">−4,94 %</td><td class="p minus">−13,53 %</td><td class="p plus">+84,59 %</td><td class="p">–</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>Infineon Technologies AG</span><em>IFX.DE</em></td><td class='kurs'>56,70<em>EUR</em></td><td class="p plus">+279,90 %</td><td class="p minus">−0,67 %</td><td class="p minus">−5,63 %</td><td class="p plus">+81,29 %</td><td class="p plus">+53,45 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>Taiwan Semiconductor Manufacturing Company Limited</span><em>TSM</em></td><td class='kurs'>417,01<em>USD</em></td><td class="p plus">+1.331,06 %</td><td class="p minus">−2,41 %</td><td class="p minus">−0,04 %</td><td class="p plus">+80,22 %</td><td class="p plus">+236,38 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>Palo Alto Networks, Inc.</span><em>PANW</em></td><td class='kurs'>331,94<em>USD</em></td><td class="p plus">+1.271,82 %</td><td class="p minus">−13,30 %</td><td class="p minus">−9,39 %</td><td class="p plus">+73,31 %</td><td class="p plus">+325,36 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>Bayer Aktiengesellschaft</span><em>BAYN.DE</em></td><td class='kurs'>48,55<em>EUR</em></td><td class="p minus">−48,03 %</td><td class="p minus">−0,25 %</td><td class="p minus">−1,36 %</td><td class="p plus">+69,90 %</td><td class="p plus">+2,26 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>RWE Aktiengesellschaft</span><em>RWE.DE</em></td><td class='kurs'>58,10<em>EUR</em></td><td class="p plus">+286,56 %</td><td class="p minus">−1,69 %</td><td class="p plus">+5,10 %</td><td class="p plus">+67,63 %</td><td class="p plus">+74,21 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>Siemens Energy AG</span><em>ENR.DE</em></td><td class='kurs'>147,34<em>EUR</em></td><td class="p plus">+574,32 %</td><td class="p minus">−1,58 %</td><td class="p minus">−2,33 %</td><td class="p plus">+65,33 %</td><td class="p plus">+482,83 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>Rio Tinto Group</span><em>RIO.L</em></td><td class='kurs'>7.566,00<em>GBp</em></td><td class="p plus">+225,14 %</td><td class="p minus">−1,41 %</td><td class="p plus">+0,73 %</td><td class="p plus">+64,34 %</td><td class="p plus">+39,90 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>HSBC Holdings plc</span><em>HSBA.L</em></td><td class='kurs'>1.567,60<em>GBp</em></td><td class="p plus">+169,86 %</td><td class="p plus">+2,56 %</td><td class="p plus">+3,77 %</td><td class="p plus">+63,05 %</td><td class="p plus">+307,75 %</td></tr>
+<tr><td class='isin'>–</td><td class='bez'><span>Silver Dec 26</span><em>SI=F</em></td><td class='kurs'>65,94<em>USD</em></td><td class="p plus">+228,89 %</td><td class="p minus">−1,57 %</td><td class="p plus">+6,19 %</td><td class="p plus">+61,18 %</td><td class="p plus">+166,30 %</td></tr>
+</tbody></table></div>
+
+<section class="fuss">
+  <p>Die Seite wird jeden Werktagmorgen neu gebaut. Zum Blättern die Tabelle
+     seitlich schieben.</p>
+  <p>Bei Werten aus der Vergleichsliste steht keine ISIN, weil Yahoo dazu keine
+     liefert. Trägst du sie in <code>wertpapiere.txt</code> als ISIN ein, erscheint sie.</p>
+  <details><summary>1 Wertpapier(e) ohne Kurs</summary><ul><li>ROG.SW (ROG.SW): kein Kurs (HTTP Error 404: Not Found)</li></ul></details>
+</section>
+</body>
+</html>
