@@ -8,6 +8,7 @@ selbst - keine zusaetzlichen Pakete.
 """
 
 import html
+import http.cookiejar
 import json
 import re
 import time
@@ -43,13 +44,19 @@ BROWSERKOPF = {
 
 # ---------------------------------------------------------------- Abruf
 
+# Alle Abfragen laufen ueber denselben Kanal, damit das Cookie erhalten
+# bleibt, das Yahoo fuer die Kennzahlen verlangt.
+OPENER = urllib.request.build_opener(
+    urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+
 def abrufen(url, versuche=4):
     """Holt eine JSON-Antwort. Bei Bremse durch Yahoo wird gewartet."""
     letzter = None
     for nummer in range(versuche):
         try:
             anfrage = urllib.request.Request(url, headers=BROWSERKOPF)
-            with urllib.request.urlopen(anfrage, timeout=30) as antwort:
+            with OPENER.open(anfrage, timeout=30) as antwort:
                 return json.loads(antwort.read().decode("utf-8"))
         except urllib.error.HTTPError as fehler:
             letzter = fehler
@@ -267,6 +274,49 @@ def eintraege_holen(eintraege, cache, probleme, bekannte_kuerzel):
     return zeilen
 
 
+def kennung_holen():
+    """Holt Cookie und Pruefzeichen, die Yahoo fuer Kennzahlen verlangt."""
+    try:
+        anfrage = urllib.request.Request("https://fc.yahoo.com/", headers=BROWSERKOPF)
+        try:
+            OPENER.open(anfrage, timeout=20).read()
+        except urllib.error.HTTPError:
+            pass          # Die Seite antwortet mit Fehler, setzt aber das Cookie.
+        anfrage = urllib.request.Request(
+            "https://query1.finance.yahoo.com/v1/test/getcrumb", headers=BROWSERKOPF)
+        with OPENER.open(anfrage, timeout=20) as antwort:
+            zeichen = antwort.read().decode("utf-8").strip()
+        return zeichen or None
+    except Exception as fehler:
+        print("Kennung fuer KGV nicht erhalten:", fehler)
+        return None
+
+
+def kgv_holen(kuerzel_liste, zeichen):
+    """Holt das Kurs-Gewinn-Verhaeltnis in Sammelabfragen zu je 50 Werten."""
+    werte = {}
+    if not zeichen:
+        return werte
+    for anfang in range(0, len(kuerzel_liste), 50):
+        gruppe = kuerzel_liste[anfang:anfang + 50]
+        url = ("https://query1.finance.yahoo.com/v7/finance/quote?symbols="
+               + urllib.parse.quote(",".join(gruppe))
+               + "&crumb=" + urllib.parse.quote(zeichen))
+        try:
+            daten = abrufen(url, versuche=2)
+        except Exception as fehler:
+            print("KGV-Abfrage fehlgeschlagen:", fehler)
+            time.sleep(PAUSE)
+            continue
+        for eintrag in (daten.get("quoteResponse") or {}).get("result", []):
+            kgv = eintrag.get("trailingPE")
+            if isinstance(kgv, (int, float)) and 0 < kgv < 1000:
+                werte[str(eintrag.get("symbol", "")).upper()] = float(kgv)
+        time.sleep(PAUSE)
+    print(f"KGV gefunden fuer {len(werte)} von {len(kuerzel_liste)} Werten")
+    return werte
+
+
 # ------------------------------------------------------------- Ausgabe
 
 def zahl(wert, stellen=2):
@@ -289,14 +339,16 @@ def zeile_bauen(z):
         return ("<tr class='leer'>"
                 f"<td class='isin'>{html.escape(z['isin'] or z['kuerzel'])}</td>"
                 f"<td class='bez'>{html.escape(z['name'])}</td>"
-                "<td colspan='6' class='hinweiszelle'>kein Kurs gefunden</td></tr>")
+                "<td colspan='7' class='hinweiszelle'>kein Kurs gefunden</td></tr>")
     stellen = 4 if abs(z["kurs"]) < 5 else 2
     w = z["werte"]
+    kgv = z.get("kgv")
     return ("<tr>"
             f"<td class='isin'>{html.escape(z['isin']) if z['isin'] else '–'}</td>"
             f"<td class='bez'><span>{html.escape(z['name'])}</span>"
             f"<em>{html.escape(z['kuerzel'])}</em></td>"
             f"<td class='kurs'>{zahl(z['kurs'], stellen)}<em>{html.escape(z['waehrung'])}</em></td>"
+            f"<td class='kgv'>{zahl(kgv, 1) if kgv else '–'}</td>"
             + prozentzelle(w.get("tag")) + prozentzelle(w.get("woche"))
             + prozentzelle(w.get("monat")) + prozentzelle(w.get("jahr"))
             + prozentzelle(w.get("fuenf")) + "</tr>")
@@ -337,7 +389,7 @@ h2{font-family:Newsreader,Georgia,serif;font-weight:400;font-size:1.1rem;
 @media(min-width:1132px){h2{margin-left:auto;margin-right:auto}}
 .rolle{overflow-x:auto;-webkit-overflow-scrolling:touch;border-top:1px solid var(--rule);
   border-bottom:1px solid var(--rule);background:var(--card)}
-table{border-collapse:collapse;width:100%;min-width:760px;font-size:.84rem}
+table{border-collapse:collapse;width:100%;min-width:830px;font-size:.84rem}
 th,td{padding:9px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--rule-soft)}
 th{position:sticky;top:0;background:var(--card);font-weight:500;font-size:.74rem;
    color:var(--ink-soft);border-bottom:1px solid var(--rule);z-index:2}
@@ -350,6 +402,7 @@ td.bez em{display:block;font-style:normal;font-size:.72rem;color:var(--ink-soft)
 td.kurs{font-family:Newsreader,Georgia,serif;font-size:1.02rem;font-variant-numeric:tabular-nums}
 td.kurs em{font-style:normal;font-size:.68rem;color:var(--ink-soft);margin-left:4px;
   font-family:Inter,sans-serif}
+td.kgv{font-variant-numeric:tabular-nums;color:var(--ink-soft)}
 td.p{font-variant-numeric:tabular-nums;font-weight:500}
 td.p.plus{color:var(--up)}
 td.p.minus{color:var(--down)}
@@ -372,7 +425,7 @@ details ul{margin:8px 0 0;padding-left:18px}
 
 <h2>Meine Wertpapiere</h2>
 <div class="rolle"><table>
-<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>1 Tag</th><th>1 Woche</th>
+<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
 <th>1 Monat</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
 <tbody>
 __MEINE__
@@ -380,7 +433,7 @@ __MEINE__
 
 <h2>Top 20 nach Ein-Jahres-Entwicklung</h2>
 <div class="rolle"><table>
-<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>1 Tag</th><th>1 Woche</th>
+<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
 <th>1 Monat</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
 <tbody>
 __TOP__
@@ -389,6 +442,7 @@ __TOP__
 <section class="fuss">
   <p>Die Seite wird jeden Werktagmorgen neu gebaut. Zum Blättern die Tabelle
      seitlich schieben.</p>
+  <p>Das KGV bezieht sich auf den Gewinn der letzten zwölf Monate. Bei Fonds, ETFs, Indizes, Währungen und Rohstoffen gibt es keines.</p>
   <p>Bei Werten aus der Vergleichsliste steht keine ISIN, weil Yahoo dazu keine
      liefert. Trägst du sie in <code>wertpapiere.txt</code> als ISIN ein, erscheint sie.</p>
   __PROBLEME__
@@ -429,6 +483,13 @@ def main():
 
     print(f"Vergleichsliste: {len(vergleich_eintraege)}")
     vergleich_zeilen = eintraege_holen(vergleich_eintraege, cache, probleme, bekannte)
+
+    # KGV fuer alle abgerufenen Werte in Sammelabfragen nachholen.
+    alle_zeilen = meine_zeilen + vergleich_zeilen
+    kuerzel = [z["kuerzel"] for z in alle_zeilen if z["kuerzel"] and not z["fehlt"]]
+    kgv_werte = kgv_holen(kuerzel, kennung_holen())
+    for z in alle_zeilen:
+        z["kgv"] = kgv_werte.get(str(z["kuerzel"]).upper())
 
     mit_jahr = [z for z in vergleich_zeilen
                 if not z["fehlt"] and z["werte"].get("jahr") is not None]
