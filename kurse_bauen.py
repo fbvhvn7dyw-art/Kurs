@@ -439,6 +439,14 @@ __MEINE__
 __TOP__
 </tbody></table></div>
 
+<h2>Top 20 nach niedrigstem KGV</h2>
+<div class="rolle"><table>
+<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
+<th>1 Monat</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
+<tbody>
+__GUENSTIG__
+</tbody></table></div>
+
 <section class="fuss">
   <p>Die Seite wird jeden Werktagmorgen neu gebaut. Zum Blättern die Tabelle
      seitlich schieben.</p>
@@ -452,7 +460,7 @@ __TOP__
 """
 
 
-def seite_bauen(meine_zeilen, top_zeilen, probleme):
+def seite_bauen(meine_zeilen, top_zeilen, guenstig_zeilen, probleme):
     stand = datetime.now(BERLIN).strftime("%d.%m.%Y, %H:%M")
     if probleme:
         punkte = "".join(f"<li>{html.escape(p)}</li>" for p in probleme)
@@ -465,6 +473,7 @@ def seite_bauen(meine_zeilen, top_zeilen, probleme):
              .replace("__STAND__", stand)
              .replace("__MEINE__", "\n".join(zeile_bauen(z) for z in meine_zeilen))
              .replace("__TOP__", "\n".join(zeile_bauen(z) for z in top_zeilen))
+             .replace("__GUENSTIG__", "\n".join(zeile_bauen(z) for z in guenstig_zeilen))
              .replace("__PROBLEME__", block))
     DATEI_ZIEL.parent.mkdir(parents=True, exist_ok=True)
     DATEI_ZIEL.write_text(seite, encoding="utf-8")
@@ -496,10 +505,15 @@ def main():
     mit_jahr.sort(key=lambda z: z["werte"]["jahr"], reverse=True)
     top_zeilen = mit_jahr[:ANZAHL_TOP]
 
-    seite_bauen(meine_zeilen, top_zeilen, probleme)
+    mit_kgv = [z for z in vergleich_zeilen if z.get("kgv")]
+    mit_kgv.sort(key=lambda z: z["kgv"])
+    guenstig_zeilen = mit_kgv[:ANZAHL_TOP]
+
+    seite_bauen(meine_zeilen, top_zeilen, guenstig_zeilen, probleme)
     DATEI_CACHE.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
 
-    print(f"Fertig. {len(top_zeilen)} Top-Werte, {len(probleme)} Probleme.")
+    print(f"Fertig. {len(top_zeilen)} nach Jahr, {len(guenstig_zeilen)} nach KGV, "
+          f"{len(probleme)} Probleme.")
 
 
 if __name__ == "__main__":
