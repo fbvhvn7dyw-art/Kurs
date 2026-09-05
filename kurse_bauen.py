@@ -389,14 +389,24 @@ h2{font-family:Newsreader,Georgia,serif;font-weight:400;font-size:1.1rem;
 @media(min-width:1132px){h2{margin-left:auto;margin-right:auto}}
 .rolle{overflow-x:auto;-webkit-overflow-scrolling:touch;border-top:1px solid var(--rule);
   border-bottom:1px solid var(--rule);background:var(--card)}
-table{border-collapse:collapse;width:100%;min-width:830px;font-size:.84rem}
-th,td{padding:9px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--rule-soft)}
+/* Feste Spaltenbreiten, in allen drei Tabellen gleich.
+   Die Einheit "ch" ist die Breite einer Ziffer - 15ch sind also 15 Stellen.
+   Die Summe aller Breiten ergibt die Tabellenbreite: 15+35+11+7+5x8,8 = 112 */
+table{table-layout:fixed;border-collapse:collapse;width:112ch;min-width:112ch;
+  font-size:.84rem}
+th:nth-child(1){width:15ch}
+th:nth-child(2){width:35ch}
+th:nth-child(3){width:11ch}
+th:nth-child(4){width:7ch}
+th:nth-child(n+5){width:8.8ch}
+th,td{padding:9px 10px;text-align:right;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;border-bottom:1px solid var(--rule-soft)}
 th{position:sticky;top:0;background:var(--card);font-weight:500;font-size:.74rem;
    color:var(--ink-soft);border-bottom:1px solid var(--rule);z-index:2}
 th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--card);z-index:1}
 th:first-child{z-index:3}
 td.isin{font-size:.76rem;color:var(--ink-soft);letter-spacing:.01em}
-td.bez{text-align:left;white-space:normal;min-width:190px}
+td.bez{text-align:left;white-space:normal;overflow-wrap:anywhere;line-height:1.35}
 td.bez span{font-weight:500}
 td.bez em{display:block;font-style:normal;font-size:.72rem;color:var(--ink-soft)}
 td.kurs{font-family:Newsreader,Georgia,serif;font-size:1.02rem;font-variant-numeric:tabular-nums}
