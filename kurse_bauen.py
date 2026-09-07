@@ -433,7 +433,6 @@ details ul{margin:8px 0 0;padding-left:18px}
   <p class="stand">Stand __STAND__ Uhr · Kurse von Yahoo Finance, ohne Gewähr</p>
 </header>
 
-<h2>Meine Wertpapiere</h2>
 <div class="rolle"><table>
 <thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
 <th>1 Monat</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
