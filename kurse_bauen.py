@@ -178,7 +178,8 @@ def veraenderungen(satz):
             vortag = gemeldet
     werte["tag"] = (kurs - vortag) / vortag * 100 if vortag else None
 
-    for name, tage in (("woche", 7), ("monat", 30), ("jahr", 365), ("fuenf", 1826)):
+    for name, tage in (("woche", 7), ("monat", 30), ("halbjahr", 182),
+                       ("jahr", 365), ("fuenf", 1826)):
         basis = kurs_vor(verlauf, tage, stichtag)
         werte[name] = (kurs - basis) / basis * 100 if basis else None
     return werte
@@ -339,7 +340,7 @@ def zeile_bauen(z):
         return ("<tr class='leer'>"
                 f"<td class='isin'>{html.escape(z['isin'] or z['kuerzel'])}</td>"
                 f"<td class='bez'>{html.escape(z['name'])}</td>"
-                "<td colspan='7' class='hinweiszelle'>kein Kurs gefunden</td></tr>")
+                "<td colspan='8' class='hinweiszelle'>kein Kurs gefunden</td></tr>")
     stellen = 4 if abs(z["kurs"]) < 5 else 2
     w = z["werte"]
     kgv = z.get("kgv")
@@ -350,7 +351,8 @@ def zeile_bauen(z):
             f"<td class='kurs'>{zahl(z['kurs'], stellen)}<em>{html.escape(z['waehrung'])}</em></td>"
             f"<td class='kgv'>{zahl(kgv, 1) if kgv else '–'}</td>"
             + prozentzelle(w.get("tag")) + prozentzelle(w.get("woche"))
-            + prozentzelle(w.get("monat")) + prozentzelle(w.get("jahr"))
+            + prozentzelle(w.get("monat")) + prozentzelle(w.get("halbjahr"))
+            + prozentzelle(w.get("jahr"))
             + prozentzelle(w.get("fuenf")) + "</tr>")
 
 
@@ -391,8 +393,8 @@ h2{font-family:Newsreader,Georgia,serif;font-weight:400;font-size:1.1rem;
   border-bottom:1px solid var(--rule);background:var(--card)}
 /* Feste Spaltenbreiten, in allen drei Tabellen gleich.
    Die Einheit "ch" ist die Breite einer Ziffer - 15ch sind also 15 Stellen.
-   Die Summe aller Breiten ergibt die Tabellenbreite: 15+35+11+7+5x8,8 = 112 */
-table{table-layout:fixed;border-collapse:collapse;width:112ch;min-width:112ch;
+   Die Summe aller Breiten ergibt die Tabellenbreite: 15+35+11+7+6x8,8 = 120,8 */
+table{table-layout:fixed;border-collapse:collapse;width:120.8ch;min-width:120.8ch;
   font-size:.84rem}
 th:nth-child(1){width:15ch}
 th:nth-child(2){width:35ch}
@@ -435,7 +437,7 @@ details ul{margin:8px 0 0;padding-left:18px}
 
 <div class="rolle"><table>
 <thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
-<th>1 Monat</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
+<th>1 Monat</th><th>6 Monate</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
 <tbody>
 __MEINE__
 </tbody></table></div>
@@ -443,7 +445,7 @@ __MEINE__
 <h2>Top 20 nach Ein-Jahres-Entwicklung</h2>
 <div class="rolle"><table>
 <thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
-<th>1 Monat</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
+<th>1 Monat</th><th>6 Monate</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
 <tbody>
 __TOP__
 </tbody></table></div>
@@ -451,7 +453,7 @@ __TOP__
 <h2>Top 20 nach niedrigstem KGV</h2>
 <div class="rolle"><table>
 <thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
-<th>1 Monat</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
+<th>1 Monat</th><th>6 Monate</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
 <tbody>
 __GUENSTIG__
 </tbody></table></div>
