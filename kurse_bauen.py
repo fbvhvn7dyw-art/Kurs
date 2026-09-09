@@ -29,7 +29,8 @@ DATEI_LISTE = ORDNER / "wertpapiere.txt"
 DATEI_CACHE = ORDNER / "isin_kuerzel.json"
 DATEI_ZIEL = ORDNER / "docs" / "index.html"
 
-ANZAHL_TOP = 40
+ANZAHL_TOP = 20      # Laenge der Listen nach Jahr und nach KGV
+ANZAHL_KAUF = 40     # Laenge der Liste mit Kaufurteil
 PAUSE = 1.0          # Sekunden zwischen zwei Abfragen - nicht kleiner machen,
                      # sonst bremst Yahoo bei so vielen Werten
 ISIN_MUSTER = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
@@ -293,8 +294,41 @@ def kennung_holen():
         return None
 
 
-def kgv_holen(kuerzel_liste, zeichen):
-    """Holt das Kurs-Gewinn-Verhaeltnis in Sammelabfragen zu je 50 Werten."""
+URTEILE = {
+    "strong buy": ("Stark kaufen", "gut"),
+    "buy": ("Kaufen", "gut"),
+    "overweight": ("Kaufen", "gut"),
+    "hold": ("Halten", "mittel"),
+    "neutral": ("Halten", "mittel"),
+    "underperform": ("Reduzieren", "schlecht"),
+    "underweight": ("Reduzieren", "schlecht"),
+    "reduce": ("Reduzieren", "schlecht"),
+    "sell": ("Verkaufen", "schlecht"),
+    "strong sell": ("Verkaufen", "schlecht"),
+}
+
+
+def urteil_uebersetzen(text):
+    """Aus Yahoos '1.8 - Buy' wird ('Kaufen', 'gut', 1.8).
+
+    Die Zahl ist Yahoos Notendurchschnitt: 1 ist das beste Urteil, 5 das
+    schlechteste. Sie dient spaeter zum Sortieren der Kaufliste."""
+    if not text:
+        return None
+    teile = str(text).split(" - ")
+    wort = teile[-1].strip()
+    if not wort:
+        return None
+    try:
+        note = float(teile[0].strip().replace(",", "."))
+    except (ValueError, IndexError):
+        note = None
+    gefunden = URTEILE.get(wort.lower(), (wort, "mittel"))
+    return (gefunden[0], gefunden[1], note)
+
+
+def kennzahlen_holen(kuerzel_liste, zeichen):
+    """Holt KGV und Analystenurteil in Sammelabfragen zu je 50 Werten."""
     werte = {}
     if not zeichen:
         return werte
@@ -306,15 +340,23 @@ def kgv_holen(kuerzel_liste, zeichen):
         try:
             daten = abrufen(url, versuche=2)
         except Exception as fehler:
-            print("KGV-Abfrage fehlgeschlagen:", fehler)
+            print("Kennzahlen-Abfrage fehlgeschlagen:", fehler)
             time.sleep(PAUSE)
             continue
         for eintrag in (daten.get("quoteResponse") or {}).get("result", []):
+            name = str(eintrag.get("symbol", "")).upper()
+            if not name:
+                continue
             kgv = eintrag.get("trailingPE")
-            if isinstance(kgv, (int, float)) and 0 < kgv < 1000:
-                werte[str(eintrag.get("symbol", "")).upper()] = float(kgv)
+            werte[name] = {
+                "kgv": float(kgv) if isinstance(kgv, (int, float)) and 0 < kgv < 1000 else None,
+                "urteil": urteil_uebersetzen(eintrag.get("averageAnalystRating")),
+            }
         time.sleep(PAUSE)
-    print(f"KGV gefunden fuer {len(werte)} von {len(kuerzel_liste)} Werten")
+    mit_kgv = sum(1 for w in werte.values() if w["kgv"])
+    mit_urteil = sum(1 for w in werte.values() if w["urteil"])
+    print(f"KGV fuer {mit_kgv}, Analystenurteil fuer {mit_urteil} "
+          f"von {len(kuerzel_liste)} Werten")
     return werte
 
 
@@ -340,16 +382,20 @@ def zeile_bauen(z):
         return ("<tr class='leer'>"
                 f"<td class='isin'>{html.escape(z['isin'] or z['kuerzel'])}</td>"
                 f"<td class='bez'>{html.escape(z['name'])}</td>"
-                "<td colspan='8' class='hinweiszelle'>kein Kurs gefunden</td></tr>")
+                "<td colspan='9' class='hinweiszelle'>kein Kurs gefunden</td></tr>")
     stellen = 4 if abs(z["kurs"]) < 5 else 2
     w = z["werte"]
     kgv = z.get("kgv")
+    urteil = z.get("urteil")
+    urteilszelle = (f"<td class='rat {urteil[1]}'>{html.escape(urteil[0])}</td>"
+                    if urteil else "<td class='rat'>–</td>")
     return ("<tr>"
             f"<td class='isin'>{html.escape(z['isin']) if z['isin'] else '–'}</td>"
             f"<td class='bez'><span>{html.escape(z['name'])}</span>"
             f"<em>{html.escape(z['kuerzel'])}</em></td>"
             f"<td class='kurs'>{zahl(z['kurs'], stellen)}<em>{html.escape(z['waehrung'])}</em></td>"
-            f"<td class='kgv'>{zahl(kgv, 1) if kgv else '–'}</td>"
+            + urteilszelle
+            + f"<td class='kgv'>{zahl(kgv, 1) if kgv else '–'}</td>"
             + prozentzelle(w.get("tag")) + prozentzelle(w.get("woche"))
             + prozentzelle(w.get("monat")) + prozentzelle(w.get("halbjahr"))
             + prozentzelle(w.get("jahr"))
@@ -393,14 +439,15 @@ h2{font-family:Newsreader,Georgia,serif;font-weight:400;font-size:1.1rem;
   border-bottom:1px solid var(--rule);background:var(--card)}
 /* Feste Spaltenbreiten, in allen drei Tabellen gleich.
    Die Einheit "ch" ist die Breite einer Ziffer - 15ch sind also 15 Stellen.
-   Die Summe aller Breiten ergibt die Tabellenbreite: 15+35+11+7+6x8,8 = 120,8 */
-table{table-layout:fixed;border-collapse:collapse;width:120.8ch;min-width:120.8ch;
+   Die Summe ergibt die Tabellenbreite: 15+35+11+13+7+6x8,8 = 133,8 */
+table{table-layout:fixed;border-collapse:collapse;width:133.8ch;min-width:133.8ch;
   font-size:.84rem}
 th:nth-child(1){width:15ch}
 th:nth-child(2){width:35ch}
 th:nth-child(3){width:11ch}
-th:nth-child(4){width:7ch}
-th:nth-child(n+5){width:8.8ch}
+th:nth-child(4){width:13ch}
+th:nth-child(5){width:7ch}
+th:nth-child(n+6){width:8.8ch}
 th,td{padding:9px 10px;text-align:right;white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis;border-bottom:1px solid var(--rule-soft)}
 th{position:sticky;top:0;background:var(--card);font-weight:500;font-size:.74rem;
@@ -414,6 +461,9 @@ td.bez em{display:block;font-style:normal;font-size:.72rem;color:var(--ink-soft)
 td.kurs{font-family:Newsreader,Georgia,serif;font-size:1.02rem;font-variant-numeric:tabular-nums}
 td.kurs em{font-style:normal;font-size:.68rem;color:var(--ink-soft);margin-left:4px;
   font-family:Inter,sans-serif}
+td.rat{font-size:.78rem;font-weight:500;color:var(--ink-soft)}
+td.rat.gut{color:var(--up)}
+td.rat.schlecht{color:var(--down)}
 td.kgv{font-variant-numeric:tabular-nums;color:var(--ink-soft)}
 td.p{font-variant-numeric:tabular-nums;font-weight:500}
 td.p.plus{color:var(--up)}
@@ -436,32 +486,40 @@ details ul{margin:8px 0 0;padding-left:18px}
 </header>
 
 <div class="rolle"><table>
-<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
+<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>Analysten</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
 <th>1 Monat</th><th>6 Monate</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
 <tbody>
 __MEINE__
 </tbody></table></div>
 
-<h2>Top 20 nach Ein-Jahres-Entwicklung</h2>
+<h2>__T1__</h2>
 <div class="rolle"><table>
-<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
+<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>Analysten</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
 <th>1 Monat</th><th>6 Monate</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
 <tbody>
 __TOP__
 </tbody></table></div>
 
-<h2>Top 20 nach niedrigstem KGV</h2>
+<h2>__T2__</h2>
 <div class="rolle"><table>
-<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
+<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>Analysten</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
 <th>1 Monat</th><th>6 Monate</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
 <tbody>
 __GUENSTIG__
 </tbody></table></div>
 
+<h2>__T3__</h2>
+<div class="rolle"><table>
+<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>Analysten</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
+<th>1 Monat</th><th>6 Monate</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
+<tbody>
+__KAUF__
+</tbody></table></div>
+
 <section class="fuss">
   <p>Die Seite wird jeden Werktagmorgen neu gebaut. Zum Blättern die Tabelle
      seitlich schieben.</p>
-  <p>Das KGV bezieht sich auf den Gewinn der letzten zwölf Monate. Bei Fonds, ETFs, Indizes, Währungen und Rohstoffen gibt es keines.</p>
+  <p>Die Spalte Analysten gibt das gemittelte Urteil der Banken wieder, die das Papier beobachten - so, wie Yahoo es ausweist. Das ist keine Empfehlung dieser Seite und ersetzt keine eigene Prüfung.</p>\n  <p>Das KGV bezieht sich auf den Gewinn der letzten zwölf Monate. Bei Fonds, ETFs, Indizes, Währungen und Rohstoffen gibt es keines.</p>
   <p>Bei Werten aus der Vergleichsliste steht keine ISIN, weil Yahoo dazu keine
      liefert. Trägst du sie in <code>wertpapiere.txt</code> als ISIN ein, erscheint sie.</p>
   __PROBLEME__
@@ -471,7 +529,7 @@ __GUENSTIG__
 """
 
 
-def seite_bauen(meine_zeilen, top_zeilen, guenstig_zeilen, probleme):
+def seite_bauen(meine_zeilen, top_zeilen, guenstig_zeilen, kauf_zeilen, probleme):
     stand = datetime.now(BERLIN).strftime("%d.%m.%Y, %H:%M")
     if probleme:
         punkte = "".join(f"<li>{html.escape(p)}</li>" for p in probleme)
@@ -485,6 +543,10 @@ def seite_bauen(meine_zeilen, top_zeilen, guenstig_zeilen, probleme):
              .replace("__MEINE__", "\n".join(zeile_bauen(z) for z in meine_zeilen))
              .replace("__TOP__", "\n".join(zeile_bauen(z) for z in top_zeilen))
              .replace("__GUENSTIG__", "\n".join(zeile_bauen(z) for z in guenstig_zeilen))
+             .replace("__KAUF__", "\n".join(zeile_bauen(z) for z in kauf_zeilen))
+             .replace("__T1__", f"Top {len(top_zeilen)} nach Ein-Jahres-Entwicklung")
+             .replace("__T2__", f"Top {len(guenstig_zeilen)} nach niedrigstem KGV")
+             .replace("__T3__", f"Top {len(kauf_zeilen)} mit Kaufurteil der Analysten")
              .replace("__PROBLEME__", block))
     DATEI_ZIEL.parent.mkdir(parents=True, exist_ok=True)
     DATEI_ZIEL.write_text(seite, encoding="utf-8")
@@ -507,9 +569,11 @@ def main():
     # KGV fuer alle abgerufenen Werte in Sammelabfragen nachholen.
     alle_zeilen = meine_zeilen + vergleich_zeilen
     kuerzel = [z["kuerzel"] for z in alle_zeilen if z["kuerzel"] and not z["fehlt"]]
-    kgv_werte = kgv_holen(kuerzel, kennung_holen())
+    kennzahlen = kennzahlen_holen(kuerzel, kennung_holen())
     for z in alle_zeilen:
-        z["kgv"] = kgv_werte.get(str(z["kuerzel"]).upper())
+        gefunden = kennzahlen.get(str(z["kuerzel"]).upper()) or {}
+        z["kgv"] = gefunden.get("kgv")
+        z["urteil"] = gefunden.get("urteil")
 
     mit_jahr = [z for z in vergleich_zeilen
                 if not z["fehlt"] and z["werte"].get("jahr") is not None]
@@ -520,11 +584,19 @@ def main():
     mit_kgv.sort(key=lambda z: z["kgv"])
     guenstig_zeilen = mit_kgv[:ANZAHL_TOP]
 
-    seite_bauen(meine_zeilen, top_zeilen, guenstig_zeilen, probleme)
+    # Kaufurteile: bestes Urteil zuerst, bei gleicher Note die staerkere
+    # Jahresentwicklung.
+    mit_kauf = [z for z in vergleich_zeilen
+                if z.get("urteil") and z["urteil"][1] == "gut"]
+    mit_kauf.sort(key=lambda z: (z["urteil"][2] if z["urteil"][2] is not None else 2.5,
+                                 -(z["werte"].get("jahr") or -999)))
+    kauf_zeilen = mit_kauf[:ANZAHL_KAUF]
+
+    seite_bauen(meine_zeilen, top_zeilen, guenstig_zeilen, kauf_zeilen, probleme)
     DATEI_CACHE.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
 
     print(f"Fertig. {len(top_zeilen)} nach Jahr, {len(guenstig_zeilen)} nach KGV, "
-          f"{len(probleme)} Probleme.")
+          f"{len(kauf_zeilen)} mit Kaufurteil, {len(probleme)} Probleme.")
 
 
 if __name__ == "__main__":
