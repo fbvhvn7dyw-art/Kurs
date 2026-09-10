@@ -31,6 +31,23 @@ DATEI_ZIEL = ORDNER / "docs" / "index.html"
 
 ANZAHL_TOP = 20      # Laenge der Listen nach Jahr und nach KGV
 ANZAHL_KAUF = 40     # Laenge der Liste mit Kaufurteil
+JAHRE_RISIKO = 3     # Zeitraum fuer Beta, Alpha und Sortino
+ZINS = 0.02          # angenommener risikoloser Zins pro Jahr (2 %)
+
+# Vergleichsindex fuer Beta und Alpha, nach Boersenkuerzel.
+# Alles, was hier nicht steht, wird mit dem S&P 500 verglichen.
+VERGLEICHSINDEX = {
+    ".DE": "^GDAXI", ".F": "^GDAXI",
+    ".PA": "^STOXX50E", ".AS": "^STOXX50E", ".MI": "^STOXX50E",
+    ".MC": "^STOXX50E", ".ST": "^STOXX50E", ".CO": "^STOXX50E",
+    ".OL": "^STOXX50E", ".HE": "^STOXX50E",
+    ".SW": "^SSMI",
+    ".L": "^FTSE",
+    ".T": "^N225",
+    ".TO": "^GSPTSE",
+    ".AX": "^AXJO",
+}
+STANDARDINDEX = "^GSPC"
 PAUSE = 1.0          # Sekunden zwischen zwei Abfragen - nicht kleiner machen,
                      # sonst bremst Yahoo bei so vielen Werten
 ISIN_MUSTER = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
@@ -162,6 +179,71 @@ def schluss_davor(verlauf, handelstag):
     return gefunden
 
 
+def tagesrenditen(verlauf):
+    """Taegliche Veraenderung, als Zuordnung Datum -> Rendite."""
+    werte = {}
+    for i in range(1, len(verlauf)):
+        vorher, jetzt = verlauf[i - 1][1], verlauf[i][1]
+        if vorher > 0:
+            werte[verlauf[i][0]] = jetzt / vorher - 1
+    return werte
+
+
+def index_fuer(kuerzel, indizes):
+    """Waehlt den passenden Vergleichsindex zur Boerse des Papiers."""
+    gross = str(kuerzel).upper()
+    for endung, name in VERGLEICHSINDEX.items():
+        if gross.endswith(endung):
+            return indizes.get(name) or indizes.get(STANDARDINDEX)
+    return indizes.get(STANDARDINDEX)
+
+
+def risiko_kennzahlen(verlauf, index_verlauf):
+    """Beta, Alpha und Sortino-Verhaeltnis ueber die letzten Jahre.
+
+    Beta: Wie stark schwankt das Papier im Vergleich zum Index.
+    Alpha: Was blieb an Rendite uebrig, nachdem der Index erklaert ist.
+    Sortino: Ueberrendite geteilt durch die Schwankung nach unten."""
+    ergebnis = {"beta": None, "alpha": None, "sortino": None}
+    if len(verlauf) < 2:
+        return ergebnis
+
+    grenze = verlauf[-1][0] - timedelta(days=365 * JAHRE_RISIKO)
+    teil = [(tag, wert) for tag, wert in verlauf if tag >= grenze]
+    rendite = tagesrenditen(teil)
+    if len(rendite) < 400:            # weniger als rund anderthalb Jahre
+        return ergebnis
+
+    zins_tag = (1 + ZINS) ** (1 / 252) - 1
+    ueberschuss = [wert - zins_tag for wert in rendite.values()]
+    mittel = sum(ueberschuss) / len(ueberschuss)
+
+    # Sortino: nur die Verlusttage gehen in die Schwankung ein.
+    verluste = [wert for wert in ueberschuss if wert < 0]
+    if verluste:
+        abwaerts = (sum(wert * wert for wert in verluste) / len(ueberschuss)) ** 0.5
+        abwaerts *= 252 ** 0.5
+        if abwaerts > 0:
+            ergebnis["sortino"] = mittel * 252 / abwaerts
+
+    if index_verlauf:
+        index_rendite = tagesrenditen(
+            [(tag, wert) for tag, wert in index_verlauf if tag >= grenze])
+        gemeinsam = sorted(set(rendite) & set(index_rendite))
+        if len(gemeinsam) >= 400:
+            x = [index_rendite[tag] for tag in gemeinsam]
+            y = [rendite[tag] for tag in gemeinsam]
+            mx, my = sum(x) / len(x), sum(y) / len(y)
+            kovarianz = sum((a - mx) * (b - my) for a, b in zip(x, y)) / len(x)
+            varianz = sum((a - mx) ** 2 for a in x) / len(x)
+            if varianz > 0:
+                beta = kovarianz / varianz
+                ergebnis["beta"] = beta
+                ergebnis["alpha"] = ((my - zins_tag)
+                                     - beta * (mx - zins_tag)) * 252 * 100
+    return ergebnis
+
+
 def veraenderungen(satz):
     """Prozentuale Veraenderung ueber die fuenf Zeitraeume."""
     verlauf = satz["verlauf"]
@@ -221,7 +303,7 @@ def cache_lesen():
 
 # ---------------------------------------------------------- Verarbeiten
 
-def eintraege_holen(eintraege, cache, probleme, bekannte_kuerzel):
+def eintraege_holen(eintraege, cache, probleme, bekannte_kuerzel, indizes):
     """Loest ISINs auf, holt Kurse, rechnet die Veraenderungen aus."""
     zeilen = []
     for eintrag in eintraege:
@@ -248,7 +330,8 @@ def eintraege_holen(eintraege, cache, probleme, bekannte_kuerzel):
         if not kuerzel:
             probleme.append(f"{eintrag['kennung']}: kein Kürzel bei Yahoo gefunden")
             zeilen.append({"isin": eintrag["isin"] or "", "name": eintrag["name"] or eintrag["kennung"],
-                           "kuerzel": "", "kurs": None, "waehrung": "", "werte": {}, "fehlt": True})
+                           "kuerzel": "", "kurs": None, "waehrung": "", "werte": {},
+                           "risiko": {}, "fehlt": True})
             continue
 
         if kuerzel.upper() in bekannte_kuerzel:
@@ -260,11 +343,14 @@ def eintraege_holen(eintraege, cache, probleme, bekannte_kuerzel):
         except Exception as fehler:
             probleme.append(f"{eintrag['kennung']} ({kuerzel}): kein Kurs ({fehler})")
             zeilen.append({"isin": eintrag["isin"] or "", "name": eintrag["name"] or eintrag["kennung"],
-                           "kuerzel": kuerzel, "kurs": None, "waehrung": "", "werte": {}, "fehlt": True})
+                           "kuerzel": kuerzel, "kurs": None, "waehrung": "", "werte": {},
+                           "risiko": {}, "fehlt": True})
             continue
 
         bekannte_kuerzel.add(kuerzel.upper())
+        risiko = risiko_kennzahlen(satz["verlauf"], index_fuer(satz["kuerzel"], indizes))
         zeilen.append({
+            "risiko": risiko,
             "isin": eintrag["isin"] or "",
             "name": eintrag["name"] or satz["name"],
             "kuerzel": satz["kuerzel"],
@@ -348,15 +434,32 @@ def kennzahlen_holen(kuerzel_liste, zeichen):
             if not name:
                 continue
             kgv = eintrag.get("trailingPE")
+            kbv = eintrag.get("priceToBook")
+            # Eigenkapitalrendite: Gewinn je Aktie geteilt durch Buchwert je Aktie.
+            # Yahoo liefert beides mit, eine eigene Abfrage ist nicht noetig.
+            gewinn = eintrag.get("epsTrailingTwelveMonths")
+            buchwert = eintrag.get("bookValue")
+            ekr = None
+            if (isinstance(gewinn, (int, float)) and isinstance(buchwert, (int, float))
+                    and buchwert > 0):
+                ekr = gewinn / buchwert * 100
+            elif (isinstance(kgv, (int, float)) and isinstance(kbv, (int, float))
+                  and kgv > 0):
+                ekr = kbv / kgv * 100          # rechnerisch dasselbe
+            if ekr is not None and abs(ekr) > 500:
+                ekr = None                     # unbrauchbar bei winzigem Eigenkapital
             werte[name] = {
+                "ekr": ekr,
                 "kgv": float(kgv) if isinstance(kgv, (int, float)) and 0 < kgv < 1000 else None,
+                "kbv": float(kbv) if isinstance(kbv, (int, float)) and 0 < kbv < 200 else None,
                 "urteil": urteil_uebersetzen(eintrag.get("averageAnalystRating")),
             }
         time.sleep(PAUSE)
     mit_kgv = sum(1 for w in werte.values() if w["kgv"])
     mit_urteil = sum(1 for w in werte.values() if w["urteil"])
-    print(f"KGV fuer {mit_kgv}, Analystenurteil fuer {mit_urteil} "
-          f"von {len(kuerzel_liste)} Werten")
+    mit_ekr = sum(1 for w in werte.values() if w["ekr"])
+    print(f"KGV fuer {mit_kgv}, Eigenkapitalrendite fuer {mit_ekr}, "
+          f"Analystenurteil fuer {mit_urteil} von {len(kuerzel_liste)} Werten")
     return werte
 
 
@@ -382,13 +485,39 @@ def zeile_bauen(z):
         return ("<tr class='leer'>"
                 f"<td class='isin'>{html.escape(z['isin'] or z['kuerzel'])}</td>"
                 f"<td class='bez'>{html.escape(z['name'])}</td>"
-                "<td colspan='9' class='hinweiszelle'>kein Kurs gefunden</td></tr>")
+                "<td colspan='13' class='hinweiszelle'>kein Kurs gefunden</td></tr>")
     stellen = 4 if abs(z["kurs"]) < 5 else 2
     w = z["werte"]
     kgv = z.get("kgv")
     urteil = z.get("urteil")
     urteilszelle = (f"<td class='rat {urteil[1]}'>{html.escape(urteil[0])}</td>"
                     if urteil else "<td class='rat'>–</td>")
+
+    risiko = z.get("risiko") or {}
+    beta, alpha, sortino = risiko.get("beta"), risiko.get("alpha"), risiko.get("sortino")
+    if beta is None and alpha is None:
+        betazelle = "<td class='ba'>–</td>"
+    else:
+        if alpha is None:
+            alphatext, alphaklasse = "–", ""
+        else:
+            alphatext = ("+" if alpha > 0 else "−" if alpha < 0 else "") \
+                        + zahl(abs(alpha), 1) + "\u202f%"
+            alphaklasse = "plus" if alpha > 0 else "minus" if alpha < 0 else ""
+        betazelle = (f"<td class='ba'>{zahl(beta, 2) if beta is not None else '–'}"
+                     f"<em class='{alphaklasse}'>{alphatext}</em></td>")
+    ekr = z.get("ekr")
+    if ekr is None:
+        ekrzelle = "<td class='ekr'>–</td>"
+    else:
+        ekrzelle = (f"<td class='ekr {'minus' if ekr < 0 else ''}'>"
+                    f"{zahl(ekr, 1)}\u202f%</td>")
+
+    if sortino is None:
+        sortinozelle = "<td class='sor'>–</td>"
+    else:
+        sortinozelle = (f"<td class='sor {'minus' if sortino < 0 else ''}'>"
+                        f"{zahl(sortino, 2)}</td>")
     return ("<tr>"
             f"<td class='isin'>{html.escape(z['isin']) if z['isin'] else '–'}</td>"
             f"<td class='bez'><span>{html.escape(z['name'])}</span>"
@@ -396,6 +525,8 @@ def zeile_bauen(z):
             f"<td class='kurs'>{zahl(z['kurs'], stellen)}<em>{html.escape(z['waehrung'])}</em></td>"
             + urteilszelle
             + f"<td class='kgv'>{zahl(kgv, 1) if kgv else '–'}</td>"
+            + f"<td class='kgv'>{zahl(z.get('kbv'), 2) if z.get('kbv') else '–'}</td>"
+            + ekrzelle + betazelle + sortinozelle
             + prozentzelle(w.get("tag")) + prozentzelle(w.get("woche"))
             + prozentzelle(w.get("monat")) + prozentzelle(w.get("halbjahr"))
             + prozentzelle(w.get("jahr"))
@@ -439,15 +570,19 @@ h2{font-family:Newsreader,Georgia,serif;font-weight:400;font-size:1.1rem;
   border-bottom:1px solid var(--rule);background:var(--card)}
 /* Feste Spaltenbreiten, in allen drei Tabellen gleich.
    Die Einheit "ch" ist die Breite einer Ziffer - 15ch sind also 15 Stellen.
-   Die Summe ergibt die Tabellenbreite: 15+35+11+13+7+6x8,8 = 133,8 */
-table{table-layout:fixed;border-collapse:collapse;width:133.8ch;min-width:133.8ch;
+   Die Summe ergibt die Tabellenbreite: 15+35+11+13+7+7+8+11+8+6x8,8 = 167,8 */
+table{table-layout:fixed;border-collapse:collapse;width:167.8ch;min-width:167.8ch;
   font-size:.84rem}
 th:nth-child(1){width:15ch}
 th:nth-child(2){width:35ch}
 th:nth-child(3){width:11ch}
 th:nth-child(4){width:13ch}
 th:nth-child(5){width:7ch}
-th:nth-child(n+6){width:8.8ch}
+th:nth-child(6){width:7ch}
+th:nth-child(7){width:8ch}
+th:nth-child(8){width:11ch}
+th:nth-child(9){width:8ch}
+th:nth-child(n+10){width:8.8ch}
 th,td{padding:9px 10px;text-align:right;white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis;border-bottom:1px solid var(--rule-soft)}
 th{position:sticky;top:0;background:var(--card);font-weight:500;font-size:.74rem;
@@ -465,6 +600,14 @@ td.rat{font-size:.78rem;font-weight:500;color:var(--ink-soft)}
 td.rat.gut{color:var(--up)}
 td.rat.schlecht{color:var(--down)}
 td.kgv{font-variant-numeric:tabular-nums;color:var(--ink-soft)}
+td.ba{font-variant-numeric:tabular-nums;line-height:1.25}
+td.ba em{display:block;font-style:normal;font-size:.72rem;color:var(--ink-soft)}
+td.ba em.plus{color:var(--up)}
+td.ba em.minus{color:var(--down)}
+td.ekr{font-variant-numeric:tabular-nums}
+td.ekr.minus{color:var(--down)}
+td.sor{font-variant-numeric:tabular-nums}
+td.sor.minus{color:var(--down)}
 td.p{font-variant-numeric:tabular-nums;font-weight:500}
 td.p.plus{color:var(--up)}
 td.p.minus{color:var(--down)}
@@ -486,7 +629,7 @@ details ul{margin:8px 0 0;padding-left:18px}
 </header>
 
 <div class="rolle"><table>
-<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>Analysten</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
+<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>Analysten</th><th>KGV</th><th>KBV</th><th>EKR</th><th>Beta / Alpha</th><th>Sortino</th><th>1 Tag</th><th>1 Woche</th>
 <th>1 Monat</th><th>6 Monate</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
 <tbody>
 __MEINE__
@@ -494,7 +637,7 @@ __MEINE__
 
 <h2>__T1__</h2>
 <div class="rolle"><table>
-<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>Analysten</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
+<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>Analysten</th><th>KGV</th><th>KBV</th><th>EKR</th><th>Beta / Alpha</th><th>Sortino</th><th>1 Tag</th><th>1 Woche</th>
 <th>1 Monat</th><th>6 Monate</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
 <tbody>
 __TOP__
@@ -502,7 +645,7 @@ __TOP__
 
 <h2>__T2__</h2>
 <div class="rolle"><table>
-<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>Analysten</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
+<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>Analysten</th><th>KGV</th><th>KBV</th><th>EKR</th><th>Beta / Alpha</th><th>Sortino</th><th>1 Tag</th><th>1 Woche</th>
 <th>1 Monat</th><th>6 Monate</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
 <tbody>
 __GUENSTIG__
@@ -510,7 +653,7 @@ __GUENSTIG__
 
 <h2>__T3__</h2>
 <div class="rolle"><table>
-<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>Analysten</th><th>KGV</th><th>1 Tag</th><th>1 Woche</th>
+<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>Analysten</th><th>KGV</th><th>KBV</th><th>EKR</th><th>Beta / Alpha</th><th>Sortino</th><th>1 Tag</th><th>1 Woche</th>
 <th>1 Monat</th><th>6 Monate</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
 <tbody>
 __KAUF__
@@ -519,7 +662,14 @@ __KAUF__
 <section class="fuss">
   <p>Die Seite wird jeden Werktagmorgen neu gebaut. Zum Blättern die Tabelle
      seitlich schieben.</p>
-  <p>Die Spalte Analysten gibt das gemittelte Urteil der Banken wieder, die das Papier beobachten - so, wie Yahoo es ausweist. Das ist keine Empfehlung dieser Seite und ersetzt keine eigene Prüfung.</p>\n  <p>Das KGV bezieht sich auf den Gewinn der letzten zwölf Monate. Bei Fonds, ETFs, Indizes, Währungen und Rohstoffen gibt es keines.</p>
+  <p>Die Spalte Analysten gibt das gemittelte Urteil der Banken wieder, die das Papier beobachten - so, wie Yahoo es ausweist. Das ist keine Empfehlung dieser Seite und ersetzt keine eigene Prüfung.</p>\n  <p>Beta, Alpha und das Sortino-Verhältnis sind über die letzten drei Jahre aus den
+     Tageskursen gerechnet, mit 2 % als risikolosem Zins. Beta und Alpha jeweils gegen
+     einen Index der Heimatbörse: DAX, Euro Stoxx 50, SMI, FTSE 100, Nikkei, TSX,
+     ASX 200 oder S&amp;P 500. Alpha ist auf ein Jahr hochgerechnet.</p>
+  <p>EKR ist die Eigenkapitalrendite: Gewinn der letzten zwölf Monate geteilt durch
+     den Buchwert des Eigenkapitals, beides je Aktie. Eine Näherung – üblich wäre der
+     Durchschnitt des Eigenkapitals über das Jahr.</p>
+  <p>Das KGV bezieht sich auf den Gewinn der letzten zwölf Monate. Bei Fonds, ETFs, Indizes, Währungen und Rohstoffen gibt es keines.</p>
   <p>Bei Werten aus der Vergleichsliste steht keine ISIN, weil Yahoo dazu keine
      liefert. Trägst du sie in <code>wertpapiere.txt</code> als ISIN ein, erscheint sie.</p>
   __PROBLEME__
@@ -560,11 +710,21 @@ def main():
     probleme = []
     bekannte = set()
 
+    # Zuerst die Vergleichsindizes, sie werden fuer Beta und Alpha gebraucht.
+    indizes = {}
+    for name in sorted(set(list(VERGLEICHSINDEX.values()) + [STANDARDINDEX])):
+        try:
+            indizes[name] = kurs_abrufen(name)["verlauf"]
+        except Exception as fehler:
+            print("Vergleichsindex nicht verfuegbar:", name, fehler)
+        time.sleep(PAUSE)
+    print(f"Vergleichsindizes geladen: {len(indizes)}")
+
     print(f"Meine Wertpapiere: {len(meine_eintraege)}")
-    meine_zeilen = eintraege_holen(meine_eintraege, cache, probleme, bekannte)
+    meine_zeilen = eintraege_holen(meine_eintraege, cache, probleme, bekannte, indizes)
 
     print(f"Vergleichsliste: {len(vergleich_eintraege)}")
-    vergleich_zeilen = eintraege_holen(vergleich_eintraege, cache, probleme, bekannte)
+    vergleich_zeilen = eintraege_holen(vergleich_eintraege, cache, probleme, bekannte, indizes)
 
     # KGV fuer alle abgerufenen Werte in Sammelabfragen nachholen.
     alle_zeilen = meine_zeilen + vergleich_zeilen
@@ -573,6 +733,8 @@ def main():
     for z in alle_zeilen:
         gefunden = kennzahlen.get(str(z["kuerzel"]).upper()) or {}
         z["kgv"] = gefunden.get("kgv")
+        z["kbv"] = gefunden.get("kbv")
+        z["ekr"] = gefunden.get("ekr")
         z["urteil"] = gefunden.get("urteil")
 
     mit_jahr = [z for z in vergleich_zeilen
