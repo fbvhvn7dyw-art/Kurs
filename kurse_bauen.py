@@ -32,6 +32,14 @@ DATEI_ZIEL = ORDNER / "docs" / "index.html"
 ANZAHL_TOP = 20      # Laenge der Listen nach Jahr und nach KGV
 ANZAHL_KAUF = 40     # Laenge der Liste mit Kaufurteil
 JAHRE_RISIKO = 3     # Zeitraum fuer Beta, Alpha und Sortino
+
+# Bedingungen fuer die letzte Tabelle. Hier aendern, wenn andere Grenzen
+# gelten sollen - Filter und Hilfetext richten sich beide danach.
+GRENZE_BETA = 1.0
+GRENZE_SORTINO = 0.7
+GRENZE_KGV = 30.0
+GRENZE_KBV = 10.0
+GRENZE_EKR = 5.0
 ZINS = 0.02          # angenommener risikoloser Zins pro Jahr (2 %)
 
 # Vergleichsindex fuer Beta und Alpha, nach Boersenkuerzel.
@@ -565,6 +573,8 @@ h1{font-family:Newsreader,Georgia,serif;font-weight:300;font-size:2rem;margin:0;
 .stand{color:var(--ink-soft);font-size:.85rem;margin:6px 0 0}
 h2{font-family:Newsreader,Georgia,serif;font-weight:400;font-size:1.1rem;
    margin:26px 16px 8px;max-width:1100px}
+p.bedingung{margin:0 16px 10px;max-width:1100px;font-size:.8rem;
+  color:var(--ink-soft);line-height:1.5}
 @media(min-width:1132px){h2{margin-left:auto;margin-right:auto}}
 .rolle{overflow-x:auto;-webkit-overflow-scrolling:touch;border-top:1px solid var(--rule);
   border-bottom:1px solid var(--rule);background:var(--card)}
@@ -620,12 +630,29 @@ section.fuss p{margin:0 0 8px}
 details{margin-top:10px}
 summary{cursor:pointer}
 details ul{margin:8px 0 0;padding-left:18px}
+[hidden]{display:none !important}
+button{font:inherit;font-size:.88rem;color:var(--ink);background:var(--card);
+  border:1px solid var(--rule);border-radius:8px;padding:9px 16px;cursor:pointer;
+  margin-top:4px}
+button:hover{border-color:var(--marine)}
+button:focus-visible{outline:2px solid var(--marine);outline-offset:2px}
+th.hilfe{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+th.hilfe:active{color:var(--ink)}
+#hilfe{position:fixed;left:12px;right:12px;bottom:12px;z-index:20;
+  background:var(--card);color:var(--ink);border:1px solid var(--rule);
+  border-radius:12px;padding:14px 16px;font-size:.86rem;line-height:1.5;
+  box-shadow:0 6px 24px rgba(0,0,0,.18);max-width:560px;margin:0 auto;cursor:pointer}
+#hilfe strong{display:block;margin-bottom:4px;font-family:Newsreader,Georgia,serif;
+  font-weight:400;font-size:1.02rem}
+#hilfe span.wisch{display:block;margin-top:8px;font-size:.74rem;color:var(--ink-soft)}
 </style>
 </head>
 <body>
 <header>
   <h1>Kursübersicht</h1>
   <p class="stand">Stand __STAND__ Uhr · Kurse von Yahoo Finance, ohne Gewähr</p>
+  <p class="stand">Auf eine Spaltenüberschrift tippen, wenn du wissen willst, was sie bedeutet.</p>
+  <p class="stand"><button id="btnExcel" type="button">Als Excel speichern</button></p>
 </header>
 
 <div class="rolle"><table>
@@ -659,6 +686,15 @@ __GUENSTIG__
 __KAUF__
 </tbody></table></div>
 
+<h2>__T4__</h2>
+<p class="bedingung">__BEDINGUNGEN__</p>
+<div class="rolle"><table>
+<thead><tr><th>ISIN</th><th>Bezeichnung</th><th>Kurs</th><th>Analysten</th><th>KGV</th><th>KBV</th><th>EKR</th><th>Beta / Alpha</th><th>Sortino</th><th>1 Tag</th><th>1 Woche</th>
+<th>1 Monat</th><th>6 Monate</th><th>1 Jahr</th><th>5 Jahre</th></tr></thead>
+<tbody>
+__AUSWAHL__
+</tbody></table></div>
+
 <section class="fuss">
   <p>Die Seite wird jeden Werktagmorgen neu gebaut. Zum Blättern die Tabelle
      seitlich schieben.</p>
@@ -674,12 +710,394 @@ __KAUF__
      liefert. Trägst du sie in <code>wertpapiere.txt</code> als ISIN ein, erscheint sie.</p>
   __PROBLEME__
 </section>
+
+<div id="hilfe" role="status" aria-live="polite" hidden>
+  <strong id="hilfeTitel"></strong><span id="hilfeText"></span>
+  <span class="wisch">Schließt von selbst nach 5 Sekunden – oder hier tippen.</span>
+</div>
+
+<script>
+(function(){
+  var texte = {
+    "ISIN": "Internationale Wertpapierkennnummer, zwölf Stellen. Sie bezeichnet ein Papier weltweit eindeutig. Bei Werten aus der Vergleichsliste steht ein Strich, weil Yahoo zu einem Kürzel keine ISIN herausgibt.",
+    "Bezeichnung": "Name des Wertpapiers. Darunter klein das Kürzel, unter dem Yahoo es führt.",
+    "Kurs": "Letzter von Yahoo gemeldeter Kurs, üblicherweise rund 15 Minuten verzögert. Dahinter steht die Währung.",
+    "Analysten": "Gemitteltes Urteil der Banken, die das Papier beobachten, so wie Yahoo es ausweist. Das ist keine Empfehlung dieser Seite. Bei Fonds, ETFs, Indizes, Währungen und Rohstoffen gibt es keins.",
+    "KGV": "Kurs-Gewinn-Verhältnis: Kurs geteilt durch den Gewinn je Aktie der letzten zwölf Monate. Ein niedriger Wert heißt günstig bewertet, kann aber ebenso bedeuten, dass der Markt sinkende Gewinne erwartet. Firmen mit Verlust haben keins. Als groben Anhaltspunkt nutzt du unter 30; darüber muss viel Wachstum kommen, damit sich der Preis rechnet.",
+    "KBV": "Kurs-Buchwert-Verhältnis: Kurs geteilt durch das bilanzielle Eigenkapital je Aktie. Unter 1 bewertet die Börse das Unternehmen niedriger als sein Eigenkapital. Über Branchen hinweg kaum vergleichbar, weil Marken und Software nicht in der Bilanz stehen. Als groben Anhaltspunkt gilt unter 3. In deiner Auswahltabelle ist die Grenze mit 10 weiter gefasst, weil sonst kaum ein Technologiewert durchkäme.",
+    "EKR": "Eigenkapitalrendite: Gewinn der letzten zwölf Monate geteilt durch den Buchwert je Aktie. Sie zeigt, wie viel Ertrag das eingesetzte Eigenkapital abwirft. Eine Näherung, üblich wäre der Jahresdurchschnitt des Eigenkapitals. Als Anhaltspunkt nutzt du über 5 Prozent. Dauerhaft über 15 Prozent gilt als sehr stark, kann aber auch auf hohe Verschuldung zurückgehen.",
+    "Beta / Alpha": "Beta oben: wie stark das Papier mitschwingt, wenn sich sein Heimatindex bewegt. 1 heißt im Gleichschritt, 2 doppelt so stark, unter 0 gegenläufig. Alpha darunter: was an Rendite pro Jahr übrig blieb, nachdem die Indexbewegung erklärt ist. Beides aus den Tageskursen der letzten drei Jahre. In deiner Auswahltabelle muss Beta über 1 liegen. Achtung: Das bedeutet mehr Schwankung, nicht weniger Risiko - in steigenden Märkten mehr Gewinn, in fallenden mehr Verlust. Beim Alpha ist jeder Wert über 0 gut.",
+    "Sortino": "Ertrag im Verhältnis zur Schwankung nach unten, über drei Jahre. Anders als beim bekannteren Sharpe-Verhältnis zählen nur die Verlusttage, Sprünge nach oben werden nicht bestraft. Höher ist besser; negativ heißt schlechter als der risikolose Zins von 2 Prozent. Hoch heißt: der Ertrag kam ohne große Rückschläge zustande. Über 0,7 nutzt du als Grenze, über 1 gilt als richtig gut, unter 0 hat sich das Risiko nicht gelohnt.",
+    "1 Tag": "Veränderung gegenüber dem letzten Schlusskurs davor. Ohne Dividenden.",
+    "1 Woche": "Veränderung gegenüber dem Kurs vor sieben Tagen. Ohne Dividenden.",
+    "1 Monat": "Veränderung gegenüber dem Kurs vor 30 Tagen. Ohne Dividenden.",
+    "6 Monate": "Veränderung gegenüber dem Kurs vor 182 Tagen. Ohne Dividenden. Zusammen mit der Jahresspalte ist das ein Maß für das Momentum eines Papiers. In deiner Auswahltabelle muss dieser Wert im Plus stehen.",
+    "1 Jahr": "Veränderung gegenüber dem Kurs vor 365 Tagen. Ohne Dividenden. Nach dieser Spalte ist die zweite Tabelle sortiert. In deiner Auswahltabelle muss dieser Wert im Plus stehen.",
+    "5 Jahre": "Veränderung gegenüber dem Kurs vor fünf Jahren. Ohne Dividenden. Bleibt leer, wenn das Papier noch nicht so lange notiert."
+  };
+  var kasten = document.getElementById("hilfe");
+  var titel = document.getElementById("hilfeTitel");
+  var inhalt = document.getElementById("hilfeText");
+  var uhr = null;
+
+  function zeigen(name, text){
+    titel.textContent = name;
+    inhalt.textContent = text;
+    kasten.hidden = false;
+    if(uhr){ clearTimeout(uhr); }
+    uhr = setTimeout(function(){ kasten.hidden = true; }, 5000);
+  }
+  function schliessen(){
+    kasten.hidden = true;
+    if(uhr){ clearTimeout(uhr); uhr = null; }
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll("th"), function(feld){
+    var name = (feld.textContent || "").trim();
+    var text = texte[name];
+    if(!text){ return; }
+    feld.className = feld.className ? feld.className + " hilfe" : "hilfe";
+    feld.setAttribute("title", text);
+    feld.setAttribute("tabindex", "0");
+    feld.setAttribute("role", "button");
+    feld.addEventListener("click", function(){ zeigen(name, text); });
+    feld.addEventListener("keydown", function(e){
+      if(e.key === "Enter" || e.key === " "){ e.preventDefault(); zeigen(name, text); }
+    });
+  });
+
+  kasten.addEventListener("click", schliessen);
+})();
+</script>
+
+<script>
+// Erzeugt eine echte xlsx-Datei ohne fremde Bibliotheken.
+// Eine xlsx-Datei ist ein ZIP-Archiv mit mehreren XML-Dateien darin.
+
+function xlsxErzeugen(blaetter) {
+
+  // ---------- Hilfsmittel ----------
+  var kodierer = new TextEncoder();
+
+  function schuetzen(text) {
+    return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function spaltenbuchstabe(nummer) {          // 1 -> A, 27 -> AA
+    var name = "";
+    while (nummer > 0) {
+      var rest = (nummer - 1) % 26;
+      name = String.fromCharCode(65 + rest) + name;
+      nummer = Math.floor((nummer - rest) / 26);
+    }
+    return name;
+  }
+
+  function blattname(text) {                   // Excel verbietet einige Zeichen
+    var verboten = "/?*[]:" + String.fromCharCode(92);
+    var sauber = "";
+    for (var i = 0; i < text.length && sauber.length < 31; i++) {
+      var zeichen = text.charAt(i);
+      sauber += (verboten.indexOf(zeichen) >= 0) ? " " : zeichen;
+    }
+    return sauber;
+  }
+
+  // ---------- Ein Arbeitsblatt als XML ----------
+  function blattXml(blatt) {
+    var spalten = blatt.kopf.length;
+    var letzte = spaltenbuchstabe(spalten);
+    var zeilen = [];
+
+    function zelle(spalte, zeile, wert) {
+      var bezug = spaltenbuchstabe(spalte) + zeile;
+      if (wert === null || wert === undefined || wert === "") {
+        return "";
+      }
+      if (typeof wert === "number" && isFinite(wert)) {
+        return '<c r="' + bezug + '"><v>' + wert + "</v></c>";
+      }
+      return '<c r="' + bezug + '" t="inlineStr"><is><t xml:space="preserve">'
+             + schuetzen(wert) + "</t></is></c>";
+    }
+
+    var kopfzellen = blatt.kopf.map(function (text, i) {
+      return zelle(i + 1, 1, String(text));
+    }).join("");
+    zeilen.push('<row r="1">' + kopfzellen + "</row>");
+
+    blatt.zeilen.forEach(function (werte, nummer) {
+      var r = nummer + 2;
+      var inhalt = werte.map(function (wert, i) { return zelle(i + 1, r, wert); }).join("");
+      zeilen.push('<row r="' + r + '">' + inhalt + "</row>");
+    });
+
+    var breiten = (blatt.breiten || []).map(function (breite, i) {
+      return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + breite + '" customWidth="1"/>';
+    }).join("");
+
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+      + '<sheetViews><sheetView workbookViewId="0">'
+      + '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>'
+      + "</sheetView></sheetViews>"
+      + (breiten ? "<cols>" + breiten + "</cols>" : "")
+      + "<sheetData>" + zeilen.join("") + "</sheetData>"
+      + '<autoFilter ref="A1:' + letzte + (blatt.zeilen.length + 1) + '"/>'
+      + "</worksheet>";
+  }
+
+  // ---------- Die Bestandteile des Archivs ----------
+  var dateien = [];
+
+  var typen = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    + '<Default Extension="xml" ContentType="application/xml"/>'
+    + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'];
+  var blattverweise = [];
+  var mappenverweise = [];
+
+  blaetter.forEach(function (blatt, i) {
+    var nummer = i + 1;
+    typen.push('<Override PartName="/xl/worksheets/sheet' + nummer
+      + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>');
+    blattverweise.push('<sheet name="' + schuetzen(blattname(blatt.name))
+      + '" sheetId="' + nummer + '" r:id="rId' + nummer + '"/>');
+    mappenverweise.push('<Relationship Id="rId' + nummer
+      + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"'
+      + ' Target="worksheets/sheet' + nummer + '.xml"/>');
+    dateien.push({ name: "xl/worksheets/sheet" + nummer + ".xml", text: blattXml(blatt) });
+  });
+  typen.push("</Types>");
+
+  dateien.unshift({ name: "[Content_Types].xml", text: typen.join("") });
+  dateien.push({
+    name: "_rels/.rels",
+    text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+      + "</Relationships>"
+  });
+  dateien.push({
+    name: "xl/workbook.xml",
+    text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+      + ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+      + "<sheets>" + blattverweise.join("") + "</sheets></workbook>"
+  });
+  dateien.push({
+    name: "xl/_rels/workbook.xml.rels",
+    text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + mappenverweise.join("") + "</Relationships>"
+  });
+
+  // ---------- ZIP-Archiv zusammensetzen ----------
+  var crcTabelle = (function () {
+    var tabelle = new Uint32Array(256);
+    for (var n = 0; n < 256; n++) {
+      var c = n;
+      for (var k = 0; k < 8; k++) { c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); }
+      tabelle[n] = c >>> 0;
+    }
+    return tabelle;
+  })();
+
+  function pruefsumme(bytes) {
+    var c = 0xFFFFFFFF;
+    for (var i = 0; i < bytes.length; i++) {
+      c = crcTabelle[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+    }
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  var jetzt = new Date();
+  var zipZeit = ((jetzt.getHours() << 11) | (jetzt.getMinutes() << 5)
+                 | (jetzt.getSeconds() >> 1)) & 0xFFFF;
+  var zipDatum = (((jetzt.getFullYear() - 1980) << 9) | ((jetzt.getMonth() + 1) << 5)
+                  | jetzt.getDate()) & 0xFFFF;
+
+  var stuecke = [], verzeichnis = [], versatz = 0, gesamt = 0;
+
+  dateien.forEach(function (datei) {
+    var inhalt = kodierer.encode(datei.text);
+    var name = kodierer.encode(datei.name);
+    var summe = pruefsumme(inhalt);
+
+    var kopf = new Uint8Array(30 + name.length);
+    var k = new DataView(kopf.buffer);
+    k.setUint32(0, 0x04034b50, true);      // Kennung lokaler Kopf
+    k.setUint16(4, 20, true);              // benoetigte Version
+    k.setUint16(6, 0x0800, true);          // Namen sind UTF-8
+    k.setUint16(8, 0, true);               // ohne Komprimierung
+    k.setUint16(10, zipZeit, true);
+    k.setUint16(12, zipDatum, true);
+    k.setUint32(14, summe, true);
+    k.setUint32(18, inhalt.length, true);
+    k.setUint32(22, inhalt.length, true);
+    k.setUint16(26, name.length, true);
+    k.setUint16(28, 0, true);
+    kopf.set(name, 30);
+
+    stuecke.push(kopf, inhalt);
+    gesamt += kopf.length + inhalt.length;
+
+    var eintrag = new Uint8Array(46 + name.length);
+    var e = new DataView(eintrag.buffer);
+    e.setUint32(0, 0x02014b50, true);      // Kennung Verzeichniseintrag
+    e.setUint16(4, 20, true);
+    e.setUint16(6, 20, true);
+    e.setUint16(8, 0x0800, true);
+    e.setUint16(10, 0, true);
+    e.setUint16(12, zipZeit, true);
+    e.setUint16(14, zipDatum, true);
+    e.setUint32(16, summe, true);
+    e.setUint32(20, inhalt.length, true);
+    e.setUint32(24, inhalt.length, true);
+    e.setUint16(28, name.length, true);
+    e.setUint32(42, versatz, true);
+    eintrag.set(name, 46);
+    verzeichnis.push(eintrag);
+
+    versatz += kopf.length + inhalt.length;
+  });
+
+  var verzeichnisLaenge = verzeichnis.reduce(function (s, e) { return s + e.length; }, 0);
+  var ende = new Uint8Array(22);
+  var v = new DataView(ende.buffer);
+  v.setUint32(0, 0x06054b50, true);        // Kennung Ende des Verzeichnisses
+  v.setUint16(8, dateien.length, true);
+  v.setUint16(10, dateien.length, true);
+  v.setUint32(12, verzeichnisLaenge, true);
+  v.setUint32(16, gesamt, true);
+
+  var alles = new Uint8Array(gesamt + verzeichnisLaenge + 22);
+  var stelle = 0;
+  stuecke.concat(verzeichnis).concat([ende]).forEach(function (teil) {
+    alles.set(teil, stelle); stelle += teil.length;
+  });
+  return alles;
+}
+
+
+// ---------- Tabellen der Seite auslesen und als Excel sichern ----------
+(function () {
+  var KOPF = ["ISIN", "Bezeichnung", "Kuerzel", "Kurs", "Waehrung", "Analysten",
+              "KGV", "KBV", "EKR %", "Beta", "Alpha %", "Sortino",
+              "1 Tag %", "1 Woche %", "1 Monat %", "6 Monate %", "1 Jahr %", "5 Jahre %"];
+  var BREITEN = [15, 34, 12, 11, 9, 13, 8, 8, 9, 8, 9, 9, 9, 9, 9, 9, 9, 9];
+
+  function zahlAus(text) {
+    if (!text) { return null; }
+    var s = String(text);
+    var weg = [String.fromCharCode(0x202f), String.fromCharCode(0x00a0), " ", "%", "."];
+    for (var i = 0; i < weg.length; i++) { s = s.split(weg[i]).join(""); }
+    s = s.split(String.fromCharCode(0x2212)).join("-");   // typografisches Minus
+    s = s.split(",").join(".");
+    if (s === "" || s === "-" || s === String.fromCharCode(0x2013)) { return null; }
+    var wert = parseFloat(s);
+    return isNaN(wert) ? null : wert;
+  }
+
+  function textAus(zelle) {
+    var inhalt = (zelle.textContent || "").trim();
+    return (inhalt === String.fromCharCode(0x2013)) ? "" : inhalt;
+  }
+
+  function zerlegen(zelle) {              // Zellen mit zwei Angaben uebereinander
+    var klein = zelle.querySelector("em");
+    var ganz = (zelle.textContent || "").trim();
+    if (!klein) { return [ganz, ""]; }
+    var unten = (klein.textContent || "").trim();
+    var oben = ganz.slice(0, ganz.length - unten.length).trim();
+    return [oben, unten];
+  }
+
+  function zeileAus(tr) {
+    var zellen = tr.querySelectorAll("td");
+    if (zellen.length < 15) {             // Zeile ohne Kurs
+      var leer = [];
+      for (var n = 0; n < KOPF.length; n++) { leer.push(null); }
+      leer[0] = textAus(zellen[0]);
+      leer[1] = zellen.length > 1 ? textAus(zellen[1]) : "";
+      return leer;
+    }
+    var bez = zerlegen(zellen[1]);
+    var kurs = zerlegen(zellen[2]);
+    var ba = zerlegen(zellen[7]);
+    var werte = [textAus(zellen[0]), bez[0], bez[1], zahlAus(kurs[0]), kurs[1],
+                 textAus(zellen[3]), zahlAus(textAus(zellen[4])), zahlAus(textAus(zellen[5])),
+                 zahlAus(textAus(zellen[6])), zahlAus(ba[0]), zahlAus(ba[1]),
+                 zahlAus(textAus(zellen[8]))];
+    for (var i = 9; i <= 14; i++) { werte.push(zahlAus(textAus(zellen[i]))); }
+    return werte;
+  }
+
+  function blaetterAus() {
+    var blaetter = [];
+    Array.prototype.forEach.call(document.querySelectorAll("table"), function (tabelle) {
+      var huelle = tabelle.closest(".rolle");
+      var davor = huelle ? huelle.previousElementSibling : null;
+      var name = (davor && davor.tagName === "H2")
+                 ? davor.textContent.trim() : "Meine Wertpapiere";
+      var zeilen = [];
+      Array.prototype.forEach.call(tabelle.querySelectorAll("tbody tr"), function (tr) {
+        zeilen.push(zeileAus(tr));
+      });
+      blaetter.push({ name: name, kopf: KOPF, breiten: BREITEN, zeilen: zeilen });
+    });
+    return blaetter;
+  }
+
+  function heute() {
+    var d = new Date();
+    function zwei(z) { return (z < 10 ? "0" : "") + z; }
+    return d.getFullYear() + "-" + zwei(d.getMonth() + 1) + "-" + zwei(d.getDate());
+  }
+
+  var knopf = document.getElementById("btnExcel");
+  if (!knopf) { return; }
+  knopf.addEventListener("click", function () {
+    var beschriftung = knopf.textContent;
+    try {
+      var bytes = xlsxErzeugen(blaetterAus());
+      var blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      var adresse = URL.createObjectURL(blob);
+      var verweis = document.createElement("a");
+      verweis.href = adresse;
+      verweis.download = "Kursuebersicht-" + heute() + ".xlsx";
+      document.body.appendChild(verweis);
+      verweis.click();
+      document.body.removeChild(verweis);
+      setTimeout(function () { URL.revokeObjectURL(adresse); }, 3000);
+      knopf.textContent = "Gespeichert";
+    } catch (fehler) {
+      knopf.textContent = "Hat nicht geklappt";
+    }
+    setTimeout(function () { knopf.textContent = beschriftung; }, 2500);
+  });
+})();
+</script>
 </body>
 </html>
 """
 
 
-def seite_bauen(meine_zeilen, top_zeilen, guenstig_zeilen, kauf_zeilen, probleme):
+def bedingungstext():
+    """Beschreibt die Filterbedingungen - aus denselben Zahlen wie der Filter."""
+    return ("Beta über " + zahl(GRENZE_BETA, 1)
+            + ", Sortino über " + zahl(GRENZE_SORTINO, 1)
+            + ", KGV unter " + zahl(GRENZE_KGV, 0)
+            + ", KBV unter " + zahl(GRENZE_KBV, 0)
+            + ", EKR über " + zahl(GRENZE_EKR, 0) + "\u202f%"
+            + ", 6 Monate und 1 Jahr im Plus. Sortiert nach KBV, niedrigstes zuerst. "
+            + "Die Bedingungen hast du vorgegeben - eine Empfehlung ist das nicht.")
+
+
+def seite_bauen(meine_zeilen, top_zeilen, guenstig_zeilen, kauf_zeilen,
+                auswahl_zeilen, probleme):
     stand = datetime.now(BERLIN).strftime("%d.%m.%Y, %H:%M")
     if probleme:
         punkte = "".join(f"<li>{html.escape(p)}</li>" for p in probleme)
@@ -697,6 +1115,10 @@ def seite_bauen(meine_zeilen, top_zeilen, guenstig_zeilen, kauf_zeilen, probleme
              .replace("__T1__", f"Top {len(top_zeilen)} nach Ein-Jahres-Entwicklung")
              .replace("__T2__", f"Top {len(guenstig_zeilen)} nach niedrigstem KGV")
              .replace("__T3__", f"Top {len(kauf_zeilen)} mit Kaufurteil der Analysten")
+             .replace("__AUSWAHL__", "\n".join(zeile_bauen(z) for z in auswahl_zeilen))
+             .replace("__T4__", f"Deine Auswahl: {len(auswahl_zeilen)} Werte erfüllen "
+                                "alle Bedingungen")
+             .replace("__BEDINGUNGEN__", bedingungstext())
              .replace("__PROBLEME__", block))
     DATEI_ZIEL.parent.mkdir(parents=True, exist_ok=True)
     DATEI_ZIEL.write_text(seite, encoding="utf-8")
@@ -754,11 +1176,30 @@ def main():
                                  -(z["werte"].get("jahr") or -999)))
     kauf_zeilen = mit_kauf[:ANZAHL_KAUF]
 
-    seite_bauen(meine_zeilen, top_zeilen, guenstig_zeilen, kauf_zeilen, probleme)
+    def bedingungen_erfuellt(z):
+        risiko = z.get("risiko") or {}
+        werte = z.get("werte") or {}
+        pruefwerte = [risiko.get("beta"), risiko.get("sortino"), z.get("kgv"),
+                      z.get("kbv"), z.get("ekr"), werte.get("halbjahr"),
+                      werte.get("jahr")]
+        if any(wert is None for wert in pruefwerte):
+            return False
+        beta, sortino, kgv, kbv, ekr, halbjahr, jahr = pruefwerte
+        return (beta > GRENZE_BETA and sortino > GRENZE_SORTINO
+                and kgv < GRENZE_KGV and kbv < GRENZE_KBV and ekr > GRENZE_EKR
+                and halbjahr > 0 and jahr > 0)
+
+    auswahl_zeilen = [z for z in vergleich_zeilen
+                      if not z["fehlt"] and bedingungen_erfuellt(z)]
+    auswahl_zeilen.sort(key=lambda z: z["kbv"])
+
+    seite_bauen(meine_zeilen, top_zeilen, guenstig_zeilen, kauf_zeilen,
+                auswahl_zeilen, probleme)
     DATEI_CACHE.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
 
     print(f"Fertig. {len(top_zeilen)} nach Jahr, {len(guenstig_zeilen)} nach KGV, "
-          f"{len(kauf_zeilen)} mit Kaufurteil, {len(probleme)} Probleme.")
+          f"{len(kauf_zeilen)} mit Kaufurteil, {len(auswahl_zeilen)} in deiner Auswahl, "
+          f"{len(probleme)} Probleme.")
 
 
 if __name__ == "__main__":
